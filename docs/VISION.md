@@ -80,6 +80,8 @@ For explicit scope boundaries and exclusions, see `SCOPE.md`. For concrete produ
 
 ## Core principles
 
+These principles express the product's philosophy. For the engineering strategy, named patterns, and locked heuristics that implement them, see `STRATEGY.md`.
+
 ### 1. Local-first development
 
 Workflows are authored locally and versioned locally. n8n is the deployment/runtime target, not the center of development.

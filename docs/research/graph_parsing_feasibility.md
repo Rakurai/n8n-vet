@@ -348,11 +348,17 @@ Concrete dependency plan:
 - The `DirectedGraph` in n8n-core is well-designed but internal, and its `findSubgraph`/`findStartNodes` are oriented toward partial execution concerns (pin data, run data, dirty detection) rather than static validation.
 - The total graph code needed is small and benefits from being purpose-built for n8n-check's specific operations (slice computation, path enumeration, boundary detection) rather than adapted from n8n's execution-oriented utilities.
 
-### Open Questions
+### Verified (spike completed 2026-04-18)
 
-1. **Can `@n8n-as-code/transformer` be installed as a standalone npm package?** It is published to npm and its `package.json` has no workspace dependencies, so this should work. Needs verification.
-2. **Is the `WorkflowAST` sufficient for all static analysis?** The `NodeAST.parameters` field contains the full node parameters as a `Record<string, any>`. This should be enough for expression detection and parameter-level analysis. Verify with real workflow files.
-3. **Does n8n-check need to handle the n8n JSON format directly (bypassing n8nac)?** If workflows arrive as JSON (e.g., from the n8n API), `JsonToAstParser` can convert them to `WorkflowAST`. This keeps the graph walker unified on one format.
+1. **`@n8n-as-code/transformer` installs standalone.** Confirmed. `npm install @n8n-as-code/transformer@1.2.0` pulls 36 packages (reflect-metadata, ts-morph, prettier, uuid). No workspace dependencies. Clean install.
+
+2. **`WorkflowAST` is sufficient for all static analysis.** Confirmed. `NodeAST.parameters` contains the full parameter object including expression strings (e.g., `={{ $json.data.name }}`). `ConnectionAST` maps cleanly to graph edges. Credentials, execution settings, and node type metadata are all available.
+
+3. **`JsonToAstParser` handles n8n JSON directly.** Confirmed. JSON workflows parse into the same `WorkflowAST` structure. No need to bypass n8nac.
+
+**Additional finding:** `ConnectionAST` node references use `propertyName` (camelCase identifier), not `displayName` (n8n's human-readable name). Expression references like `$('Schedule Trigger')` use `displayName`. The graph must maintain a `displayName → propertyName` lookup for expression resolution. See INDEX.md NodeIdentity section for details.
+
+**Additional finding:** The TS parser does not populate `displayName` when the `@node` decorator uses `displayName:` instead of `name:` as the key. The correct decorator key is `name` per `NodeDecoratorMetadata`.
 
 ---
 

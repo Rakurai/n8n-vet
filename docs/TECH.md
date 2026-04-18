@@ -12,6 +12,7 @@ This document should be read together with:
 * `CONCEPTS.md`
 * `SCOPE.md`
 * `PRD.md`
+* `STRATEGY.md`
 
 ---
 
@@ -371,20 +372,34 @@ Agents can continue to handle on-push validation outcomes using the guidance and
 
 ---
 
-## 16. Packaging direction
+## 16. Packaging and distribution
 
-The product should be packaged as a standalone TypeScript project with a library core and agent-oriented surface.
+The product is packaged as a standalone TypeScript project with a library core. It supports **dual distribution**: a Claude Code plugin (primary) and a standalone MCP server (secondary).
 
-### Expected characteristics
+### Claude Code plugin (primary distribution)
 
-* standalone repository or independently versioned package
-* depends on n8nac rather than being built into it
-* exposes a structured interface for agents
-* may additionally expose a support/debug CLI
+The product ships as a Claude Code plugin that bundles the MCP server, skills, and optional hooks. When the plugin is enabled, the MCP server starts automatically, tools appear in Claude's toolkit, and skills guide the agent toward correct validation patterns.
+
+Plugin components:
+
+* `.mcp.json` — bundles the MCP server (auto-started on plugin enable)
+* `skills/` — SKILL.md files encoding validation philosophy and tool usage patterns
+* `hooks/` — `SessionStart` hook for dependency installation into `${CLAUDE_PLUGIN_DATA}`
+* `plugin.json` — manifest with `userConfig` for n8n host/API key (prompted at enable time, sensitive values stored in keychain)
+* `bin/` — CLI binary added to PATH when plugin is active
+* `${CLAUDE_PLUGIN_DATA}` — persistent directory for trust state and snapshots (replaces `.n8n-check/` in project root)
+
+### Standalone MCP server (secondary distribution)
+
+The same MCP server can run independently via `npx` or direct installation for use with other MCP clients (VS Code Copilot, Claude Desktop, other agents). Trust state falls back to `.n8n-check/` in the project directory when not running as a plugin.
+
+### Why dual
+
+The library core + thin interface architecture already separates product logic from deployment concerns. The plugin wrapper is configuration (~5 files), not code. Supporting both paths costs almost nothing and avoids locking the product to a single agent platform.
 
 ### Locked decision
 
-**Decision:** standalone TypeScript package with n8nac dependency and library-centric architecture.
+**Decision:** Claude Code plugin is the primary distribution. Standalone MCP server is the secondary distribution. Both share the same library core.
 
 ---
 
@@ -410,6 +425,7 @@ The product should be packaged as a standalone TypeScript project with a library
 * Structured JSON diagnostic summaries are the primary output
 * Human-readable formatting is secondary
 * Product does not take over the broader n8nac push/resolve lifecycle
+* Claude Code plugin is the primary distribution; standalone MCP server is the secondary distribution
 
 ### Intentionally not locked here
 

@@ -6,6 +6,8 @@ This document is the architectural bridge between the product definition (VISION
 
 It describes the major subsystems, their responsibilities, the primary control flows, and the key design models that shape how the product operates. It records decisions that are implied or confirmed by the feasibility research, and it identifies design tensions that remain open.
 
+This document should be read together with `VISION.md`, `PRD.md`, `SCOPE.md`, `CONCEPTS.md`, `STRATEGY.md`, and `TECH.md`.
+
 ### What this document does
 
 - Establishes the internal architecture at subsystem level
@@ -23,7 +25,7 @@ It describes the major subsystems, their responsibilities, the primary control f
 
 ## 2. Design goals
 
-The architecture must serve these goals, derived from the vision and PRD:
+The architecture must serve these goals, derived from the vision, PRD, and engineering strategy (`STRATEGY.md`):
 
 1. **Bounded validation by default.** The system's natural unit of work is a workflow slice and a path through it, not an entire workflow.
 
@@ -508,53 +510,33 @@ If tool failures are reported as workflow failures, the agent will waste cycles 
 
 **Resolved by feasibility research.** Shape-opaque nodes (Code nodes, nodes without JSON Schema files, custom community nodes) are treated as hard analysis boundaries. Static analysis warns and reports reduced confidence at these boundaries. Execution-backed validation is recommended when the changed slice includes opaque nodes. The agent may supply shape hints in the future, but this is not required for the initial product. See `research/static_analysis_feasibility.md`.
 
-### Open — requires specification
+### Resolved by specification
 
-#### Target specification language
+The following design tensions were identified during initial design and have since been resolved by the detailed spec files:
 
-How does the agent specify a validation target? Options range from explicit node lists to higher-level abstractions like "whatever changed" or "this sub-workflow boundary." The specification must define the input vocabulary without making it so complex that target specification becomes a new source of agent thrash.
-
-#### Automatic slice computation vs. explicit targeting
-
-The system can compute the relevant slice from the change set, or the agent can specify one explicitly. The tension is between convenience (automatic) and control (explicit). Both modes are likely needed, but their interaction and precedence rules need specification.
-
-#### Trust state lifetime and scope
-
-How long does trust persist? Per-session? Across sessions? Across branches? Trust state that is too ephemeral provides little reuse value. Trust state that is too durable risks false confidence after untracked changes.
-
-#### Pin data sourcing strategy
-
-Where do fixtures come from? Options include: agent-provided, auto-generated from execution history, auto-generated from node schemas, and cached from prior validation runs. Each has different cost, quality, and freshness properties. The system needs a clear strategy, not ad hoc fixture handling.
-
-#### Push/deploy coordination
-
-When execution-backed validation requires pushing the workflow to n8n, who is responsible? Does n8n-check push automatically? Does it expect the agent to push first? This affects the boundary between n8n-check and n8nac's sync lifecycle.
-
-#### Sub-workflow boundary treatment
-
-Sub-workflows are natural trust boundaries, but their output contracts are not formally declared in n8n. The system must decide how much effort to invest in sub-workflow interface reasoning versus treating sub-workflow boundaries as opaque.
-
-#### Guardrail aggressiveness calibration
-
-How aggressive should guardrails be by default? Too aggressive and the system blocks useful work. Too lenient and guardrails add no value. The initial calibration likely requires real-world tuning.
+- **Target specification language** → resolved in [request-interpretation.md](spec/request-interpretation.md): three target kinds (`nodes`, `path`, `workflow`), plus auto-detect from change set as default
+- **Automatic slice computation vs. explicit targeting** → resolved in [request-interpretation.md](spec/request-interpretation.md): auto-detect is the default when no target is specified; explicit targeting overrides
+- **Trust state lifetime and scope** → resolved in [trust-and-change.md](spec/trust-and-change.md): persists across sessions per workflow, scoped to project directory, forward-only invalidation on change
+- **Pin data sourcing strategy** → resolved in [execution.md](spec/execution.md): four-tier sourcing (agent fixtures → cached artifacts → execution history → empty stubs)
+- **Push/deploy coordination** → resolved in [execution.md](spec/execution.md): n8n-check does not auto-push; push is the agent's responsibility via n8nac
+- **Sub-workflow boundary treatment** → resolved in [static-analysis.md](spec/static-analysis.md): sub-workflows are opaque for v1
+- **Guardrail aggressiveness calibration** → resolved in [guardrails.md](spec/guardrails.md): initial default thresholds (>5 nodes, <20% changed, >70% of workflow) defined as tunable constants; self-calibrating thresholds deferred to post-v1
 
 ---
 
-## 13. Explicit non-decisions
+## 13. Non-decisions resolved by specification
 
-This document intentionally does not lock:
+The following items were deferred to specification work and have since been resolved:
 
-- **Exact MCP tool definitions** (input/output schemas, tool names)
-- **Exact CLI command structure**
-- **Internal module boundaries or class hierarchies**
-- **Trust state persistence format or file location**
-- **Diagnostic summary JSON schema** (the required information is defined; the exact shape is not)
-- **Pin data generation strategy** (sourcing approach is an open question)
-- **Push/deploy automation policy**
-- **Guardrail threshold values** (what counts as "broad" or "low-value")
-- **Path enumeration limits** (cap on number of paths analyzed for complex graphs)
-- **Execution polling strategy** (polling interval, timeout behavior)
-- **Error message enrichment heuristics** (how to improve generic n8n error messages)
-- **Phased delivery plan** (what ships first)
-
-These belong in later specification and implementation planning work.
+- **Exact MCP tool definitions** → resolved in [mcp-surface.md](spec/mcp-surface.md): `validate`, `trust_status`, `explain` with full input/output schemas
+- **Exact CLI command structure** → resolved in [mcp-surface.md](spec/mcp-surface.md): `n8n-check validate|trust|explain` with options mirroring MCP inputs
+- **Internal module boundaries or class hierarchies** → resolved in [PLAN.md](spec/PLAN.md): `src/static-analysis/`, `src/trust/`, `src/guardrails/`, `src/execution/`, `src/diagnostics/`, `src/orchestrator/`, `src/mcp/`, `src/cli/`
+- **Trust state persistence format or file location** → resolved in [trust-and-change.md](spec/trust-and-change.md): `.n8n-check/trust-state.json` (standalone) or `${CLAUDE_PLUGIN_DATA}/trust/` (plugin mode)
+- **Diagnostic summary JSON schema** → resolved in [INDEX.md](spec/INDEX.md): `DiagnosticSummary` with all sub-types
+- **Pin data generation strategy** → resolved in [execution.md](spec/execution.md): four-tier sourcing (agent fixtures → cached artifacts → execution history → empty stubs)
+- **Push/deploy automation policy** → resolved in [execution.md](spec/execution.md): n8n-check does not auto-push; push is the agent's responsibility via n8nac
+- **Guardrail threshold values** → resolved in [guardrails.md](spec/guardrails.md): initial defaults (>5 nodes, <20% changed, >70% of workflow) as tunable constants
+- **Path enumeration limits** → resolved in [request-interpretation.md](spec/request-interpretation.md): initial cap at 20 candidate paths (tunable)
+- **Execution polling strategy** → resolved in [PLAN.md](spec/PLAN.md): exponential backoff 1s→2s→4s→8s→15s, 5-minute timeout (tunable constants)
+- **Error message enrichment heuristics** → resolved in [diagnostics.md](spec/diagnostics.md): classification-based error extraction from n8n error hierarchy
+- **Phased delivery plan** → resolved in [PLAN.md](spec/PLAN.md): Phases 0–8, bottom-up from shared types through MCP surface and plugin wrapper

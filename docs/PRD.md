@@ -105,7 +105,7 @@ Human legibility of those outputs is desirable but secondary. It should not cons
 
 ## 7. Product principles
 
-The product's core philosophy is defined in `VISION.md`. The following behavioral principles translate that philosophy into product requirements:
+The product's core philosophy is defined in `VISION.md`. The engineering strategy, evidence basis, and named patterns are defined in `STRATEGY.md`. The following behavioral principles translate that philosophy into product requirements:
 
 ### 7.1 Bounded validation
 

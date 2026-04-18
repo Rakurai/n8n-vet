@@ -18,7 +18,7 @@ The project addresses the problem described in `VISION.md`: agents building n8n 
 
 ## Core claim
 
-The project claims that validation for agent-built n8n workflows can be made substantially more efficient if it is treated as a **guardrailed control problem** rather than a generic “run more tests” problem.
+The project claims that validation for agent-built n8n workflows can be made substantially more efficient if it is treated as a **guardrailed control problem** rather than a generic "run more tests" problem. See `STRATEGY.md` for the evidence basis and named engineering patterns behind this claim.
 
 More specifically, the project claims that it is possible to improve development efficiency by:
 
