@@ -34,14 +34,14 @@ This gives us a baseline: for any workflow, we can compare the current local con
 
 ### What constitutes sufficient trust evidence
 
-For n8n-check, a node or region should be considered "trusted" when ALL of the following hold:
+For n8n-vet, a node or region should be considered "trusted" when ALL of the following hold:
 
 1. **Prior validation passed.** A validation run targeting that region completed without errors.
 2. **No relevant changes since validation.** The content hash of every node in the region matches what was present when the validation passed.
 3. **No upstream changes that could affect inputs.** Nodes feeding into the trusted region have not changed their output-affecting properties (parameters, expressions, connections).
 4. **No fixture/pin-data changes that would alter the execution context.** If validation was execution-backed, the fixtures used must also be unchanged.
 
-The first two conditions are straightforward to check with hashes. The third requires understanding the graph topology (which n8n-check will already have from its slice/path analysis). The fourth requires tracking fixture identity alongside validation results.
+The first two conditions are straightforward to check with hashes. The third requires understanding the graph topology (which n8n-vet will already have from its slice/path analysis). The fourth requires tracking fixture identity alongside validation results.
 
 ### Proposed trust state data structure
 
@@ -113,7 +113,7 @@ Derived trust is viable because:
 1. n8nac already provides stable per-workflow hashing infrastructure (`HashUtils.computeHash`, `WorkflowTransformerAdapter.hashWorkflow`).
 2. The workflow JSON structure exposes node parameters, expressions, and connections as discrete, hashable objects.
 3. Trust invalidation rules can be conservative (hash any content change as trust-breaking) without being so aggressive that trust is never useful -- because position-only and metadata-only changes can be explicitly excluded.
-4. The `.n8n-state.json` pattern provides a proven model for local state persistence that n8n-check can extend.
+4. The `.n8n-state.json` pattern provides a proven model for local state persistence that n8n-vet can extend.
 
 The main risk is **granularity cost**: computing per-node hashes on every validation request adds overhead. However, workflow sizes in practice are small enough (tens to low hundreds of nodes) that this is negligible.
 
@@ -123,7 +123,7 @@ The main risk is **granularity cost**: computing per-node hashes on every valida
 
 ### Question
 
-Can n8n-check compute changed slices from local workflow snapshots? How feasible is node-level or edge-level diffing?
+Can n8n-vet compute changed slices from local workflow snapshots? How feasible is node-level or edge-level diffing?
 
 ### n8n's workflow checksum approach
 
@@ -143,7 +143,7 @@ The approach:
 3. `JSON.stringify` the result
 4. SHA-256 the serialized string
 
-This is a **whole-workflow** checksum designed for conflict detection, not change localization. It answers "did anything change?" but not "what changed?" -- which is insufficient for n8n-check's needs.
+This is a **whole-workflow** checksum designed for conflict detection, not change localization. It answers "did anything change?" but not "what changed?" -- which is insufficient for n8n-vet's needs.
 
 ### n8nac's hashing approach
 
@@ -747,9 +747,9 @@ Happy-path defaults are viable because:
 
 1. **Node rename handling**: Using node name as identity means renames look like remove+add. This is acceptable for change detection but could cause unnecessary trust invalidation. A mitigation: if a "removed" and "added" node have identical parameters and type, treat it as a rename (trust preserved).
 
-2. **Expression reference graph**: Full impact analysis requires parsing expressions to find upstream references. The n8n reference parser (`node-reference-parser-utils.ts`) handles this, but n8n-check would need to either depend on it or reimplement the core patterns.
+2. **Expression reference graph**: Full impact analysis requires parsing expressions to find upstream references. The n8n reference parser (`node-reference-parser-utils.ts`) handles this, but n8n-vet would need to either depend on it or reimplement the core patterns.
 
-3. **Trust state persistence location**: The `.n8n-state.json` file is n8nac's territory. n8n-check should use a separate file (e.g., `.n8n-check-state.json`) to avoid conflicts.
+3. **Trust state persistence location**: The `.n8n-state.json` file is n8nac's territory. n8n-vet should use a separate file (e.g., `.n8n-vet-state.json`) to avoid conflicts.
 
 4. **Path enumeration on complex graphs**: Workflows with many branches can have exponential path counts. The tool should cap enumeration (e.g., top 10 paths by score) and use the happy-path heuristic to avoid combinatorial explosion.
 
@@ -757,6 +757,6 @@ Happy-path defaults are viable because:
 
 1. **Implement `NodeChangeSet` computation** as a standalone function operating on two workflow JSON snapshots.
 2. **Implement per-node content hashing** with the proposed safe-list (exclude position, metadata).
-3. **Design the `.n8n-check-state.json` schema** for trust persistence, including `WorkflowTrustState`.
+3. **Design the `.n8n-vet-state.json` schema** for trust persistence, including `WorkflowTrustState`.
 4. **Prototype the rerun assessment** on a real workflow with known edit history to validate the detection accuracy.
 5. **Integrate with n8n's expression reference parser** for upstream impact analysis.

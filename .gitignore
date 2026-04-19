@@ -18,7 +18,7 @@ coverage/
 
 # Project local state
 .scratch/
-.n8n-check/
+.n8n-vet/
 
 # spec-kit
 .specify/

@@ -117,12 +117,12 @@ function isWrappedItem(item: unknown): item is PinDataItem {
 // Pin Data Artifact Caching (T015)
 // ---------------------------------------------------------------------------
 
-const PIN_DATA_DIR = '.n8n-check/pin-data';
+const PIN_DATA_DIR = '.n8n-vet/pin-data';
 
 /**
  * Read cached pin data artifact for a node.
  *
- * Cached at .n8n-check/pin-data/<workflowId>/<nodeContentHash>.json.
+ * Cached at .n8n-vet/pin-data/<workflowId>/<nodeContentHash>.json.
  * Content-hash keying ensures automatic invalidation when node content changes.
  */
 export async function readCachedPinData(

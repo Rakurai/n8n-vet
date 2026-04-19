@@ -40,7 +40,7 @@ Claude Code plugin that bundles the MCP server and provides skills, hooks, and u
 - `n8n_api_key: string` — n8n API key. Sensitive. Stored in keychain, never plaintext.
 
 **Output:**
-- Plugin metadata: name (`n8n-check`), version (synced with `package.json`), description, author, repository, keywords
+- Plugin metadata: name (`n8n-vet`), version (synced with `package.json`), description, author, repository, keywords
 - User config schema declaring both fields with sensitivity annotations
 
 ### MCP server config (`.mcp.json`)
@@ -71,9 +71,9 @@ Claude Code plugin that bundles the MCP server and provides skills, hooks, and u
 
 **Output:**
 - Plugin mode: trust state persisted in `${CLAUDE_PLUGIN_DATA}/trust/`
-- Standalone mode: trust state persisted in `.n8n-check/` in project root
+- Standalone mode: trust state persisted in `.n8n-vet/` in project root
 
-### CLI binary (`bin/n8n-check`)
+### CLI binary (`bin/n8n-vet`)
 
 **Input:**
 - CLI arguments matching the secondary CLI surface defined in `docs/reference/mcp-surface.md`
@@ -81,7 +81,7 @@ Claude Code plugin that bundles the MCP server and provides skills, hooks, and u
 **Output:**
 - Symlink or wrapper invoking `dist/cli/index.js`
 - Available as bare command in Claude Code's Bash tool when plugin is active
-- Also usable standalone via `npx n8n-check`
+- Also usable standalone via `npx n8n-vet`
 
 ## Behavior
 
@@ -89,7 +89,7 @@ Claude Code plugin that bundles the MCP server and provides skills, hooks, and u
 
 The manifest at `.claude-plugin/plugin.json` declares:
 
-- **name**: `n8n-check`
+- **name**: `n8n-vet`
 - **version**: read from `package.json` at build time. The manifest version and package version are the same value — no independent versioning.
 - **userConfig**: two fields:
   - `n8n_host` — marked non-sensitive. Prompted on first use. Stored in Claude Code's plaintext config.
@@ -121,7 +121,7 @@ The hook runs at session start. No manual install step is required. If `npm inst
 
 ### 4. Validation skill
 
-The skill at `skills/validate-workflow/SKILL.md` is the primary mechanism for teaching the agent how to use n8n-check. It encodes the product's validation philosophy in agent-consumable form:
+The skill at `skills/validate-workflow/SKILL.md` is the primary mechanism for teaching the agent how to use n8n-vet. It encodes the product's validation philosophy in agent-consumable form:
 
 **What the skill teaches:**
 - When to call `validate` — after a meaningful batch of edits, not after every tiny change
@@ -144,7 +144,7 @@ The skill is the primary teaching surface. MCP tool descriptions remain minimal 
 Trust state storage location depends on runtime context:
 
 - **Plugin mode** (detected by `CLAUDE_PLUGIN_DATA` env var present): `${CLAUDE_PLUGIN_DATA}/trust/`
-- **Standalone mode** (detected by `CLAUDE_PLUGIN_DATA` env var absent): `.n8n-check/` in the project root
+- **Standalone mode** (detected by `CLAUDE_PLUGIN_DATA` env var absent): `.n8n-vet/` in the project root
 
 Detection is a single env var check at initialization. The trust subsystem receives the resolved path — it does not perform mode detection itself.
 
@@ -152,10 +152,10 @@ Both modes use the same trust state format and file structure. The only differen
 
 ### 6. CLI binary
 
-`bin/n8n-check` is a symlink or thin wrapper that invokes `dist/cli/index.js`.
+`bin/n8n-vet` is a symlink or thin wrapper that invokes `dist/cli/index.js`.
 
 - When the plugin is active in Claude Code, the binary is available as a bare command in the Bash tool
-- When installed standalone (`npm install -g n8n-check` or `npx n8n-check`), the binary works identically
+- When installed standalone (`npm install -g n8n-vet` or `npx n8n-vet`), the binary works identically
 - The CLI surface is secondary to the MCP surface — it exists for development and debugging, not agent consumption
 
 ## Acceptance Criteria
@@ -167,8 +167,8 @@ Both modes use the same trust state format and file structure. The only differen
 - SessionStart hook skips install when `package.json` has not changed
 - SessionStart hook raises a visible error if `npm install` fails
 - Trust state persists in `${CLAUDE_PLUGIN_DATA}/trust/` when running as a plugin
-- Trust state persists in `.n8n-check/` when running standalone (no `CLAUDE_PLUGIN_DATA`)
-- Standalone `npx n8n-check` works without the plugin infrastructure
+- Trust state persists in `.n8n-vet/` when running standalone (no `CLAUDE_PLUGIN_DATA`)
+- Standalone `npx n8n-vet` works without the plugin infrastructure
 - `userConfig` prompts for `n8n_host` and `n8n_api_key` on first use
 - Sensitive config (`n8n_api_key`) stored in keychain, not plaintext
 - Non-sensitive config (`n8n_host`) stored in plaintext config

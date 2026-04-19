@@ -4,7 +4,7 @@ description: Validate n8n workflow changes. Use when the user edits an n8n-as-co
 
 # n8n Workflow Validation
 
-You have access to n8n-check tools for validating n8n workflows. Use them to keep validation **bounded, local, and diagnostic** rather than broad and wasteful.
+You have access to n8n-vet tools for validating n8n workflows. Use them to keep validation **bounded, local, and diagnostic** rather than broad and wasteful.
 
 ## Tools available
 

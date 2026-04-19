@@ -12,7 +12,7 @@
 | ID | Category | Severity | Location | Description | Quoted Evidence |
 |----|----------|----------|----------|-------------|-----------------|
 | SD-001 | Spec Drift | HIGH | `src/trust/change.ts:244-250` | Rename detection does not transfer trust records from old name to new name. Renamed node is classified as `metadata-only` on the new identity, but the old trust record is keyed to the old NodeIdentity and removed as stale. `isTrusted(renamedNode)` returns false even though FR-007 says "trust records transfer from old name to new name." | `modified.push({ node: added[ai], changes: ['metadata-only'] });` — no trust record copy/move occurs |
-| SD-002 | Spec Drift | HIGH | `src/trust/persistence.ts:119-121` | `N8N_CHECK_DATA_DIR` environment variable is never read. FR-013 and US4-S6 require: "Given the environment variable `N8N_CHECK_DATA_DIR` is set, When the system determines the storage path, Then it uses that directory." The implementation only accepts an explicit `dataDir` parameter with a hardcoded default. | `function resolveFilePath(dataDir?: string): string { return join(dataDir ?? DEFAULT_DATA_DIR, TRUST_FILE); }` |
+| SD-002 | Spec Drift | HIGH | `src/trust/persistence.ts:119-121` | `N8N_VET_DATA_DIR` environment variable is never read. FR-013 and US4-S6 require: "Given the environment variable `N8N_VET_DATA_DIR` is set, When the system determines the storage path, Then it uses that directory." The implementation only accepts an explicit `dataDir` parameter with a hardcoded default. | `function resolveFilePath(dataDir?: string): string { return join(dataDir ?? DEFAULT_DATA_DIR, TRUST_FILE); }` |
 | CV-001 | Constitution Violation | HIGH | `src/trust/persistence.ts:95-97` | Bare `catch {}` in `persistTrustState` silently swallows ALL errors when reading the existing file. A permission error, disk full error, or I/O error would silently discard existing trust data for other workflows. Constitution I: "No silent catches, no log-and-continue, no default-value recovery on error paths." | `} catch { // Corrupt file — start fresh }` |
 | SD-003 | Spec Drift | MEDIUM | `src/trust/change.ts:55-65` | `position-only` change kind is never produced by change detection. Position is excluded from content hash (correctly per FR-002), so position-only changes are invisible to the hash comparison and classify as `unchanged`. FR-005 requires support for `position-only` classification. US1-S6: "Then the node is classified as `position-only` (trust-preserving)." | Content-hash-equal nodes always go to `unchanged.push(name as NodeIdentity)` — no mechanism to detect position-only changes. |
 | CV-002 | Constitution Violation | MEDIUM | `src/trust/hash.ts:40` | `stringify(hashInput) ?? ''` silently falls back to empty string if `json-stable-stringify` returns undefined, producing sha256('') instead of propagating the failure. Constitution I: "no default-value recovery on error paths." Wrapped in try-catch but the fallback prevents the catch from triggering. | `return sha256(stringify(hashInput) ?? '');` |
@@ -39,7 +39,7 @@
 | FR-010 | IMPLEMENTED | `src/trust/trust.ts:63-108` | Forward-only BFS invalidation |
 | FR-011 | IMPLEMENTED | `src/trust/trust.ts:15,72` | position-only and metadata-only are trust-preserving |
 | FR-012 | IMPLEMENTED | `src/trust/trust.ts:70-81` | Trust-breaking + added + connection-changed nodes seeded |
-| FR-013 | PARTIAL | `src/trust/persistence.ts` | JSON file with schemaVersion works, but N8N_CHECK_DATA_DIR env var not read (SD-002) |
+| FR-013 | PARTIAL | `src/trust/persistence.ts` | JSON file with schemaVersion works, but N8N_VET_DATA_DIR env var not read (SD-002) |
 | FR-014 | IMPLEMENTED | `src/trust/persistence.ts:28-73` | Missing file → empty, version mismatch → empty |
 | FR-015 | IMPLEMENTED | `src/trust/persistence.ts:48-51` | TrustPersistenceError on corrupt file |
 | FR-016 | IMPLEMENTED | `src/trust/trust.ts:118-121` | Hash match + record exists |
@@ -83,12 +83,12 @@ For each item below, choose an action:
 
 Action: fix / spec / skip / split
 
-### 2. [SD-002] N8N_CHECK_DATA_DIR environment variable not read
+### 2. [SD-002] N8N_VET_DATA_DIR environment variable not read
 **Location**: `src/trust/persistence.ts:119-121`
-**Spec says**: FR-013 and US4-S6 — environment variable `N8N_CHECK_DATA_DIR` overrides the default storage path
-**Code does**: `resolveFilePath` accepts `dataDir` parameter with hardcoded default `.n8n-check/`, never reads `process.env.N8N_CHECK_DATA_DIR`
+**Spec says**: FR-013 and US4-S6 — environment variable `N8N_VET_DATA_DIR` overrides the default storage path
+**Code does**: `resolveFilePath` accepts `dataDir` parameter with hardcoded default `.n8n-check/`, never reads `process.env.N8N_VET_DATA_DIR`
 
-**Proposed fix**: Read `process.env.N8N_CHECK_DATA_DIR` in `resolveFilePath` as the fallback before the hardcoded default: `dataDir ?? process.env.N8N_CHECK_DATA_DIR ?? DEFAULT_DATA_DIR`
+**Proposed fix**: Read `process.env.N8N_VET_DATA_DIR` in `resolveFilePath` as the fallback before the hardcoded default: `dataDir ?? process.env.N8N_VET_DATA_DIR ?? DEFAULT_DATA_DIR`
 
 Action: fix / spec / skip / split
 

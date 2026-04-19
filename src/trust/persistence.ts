@@ -12,7 +12,7 @@ import { type PersistedTrustStore, persistedTrustStoreSchema } from './types.js'
 
 const TRUST_FILE = 'trust-state.json';
 const CURRENT_SCHEMA_VERSION = 1;
-const DEFAULT_DATA_DIR = '.n8n-check';
+const DEFAULT_DATA_DIR = '.n8n-vet';
 
 /**
  * Load trust state from the local JSON file.
@@ -131,11 +131,11 @@ export function persistTrustState(state: TrustState, workflowHash: string, dataD
 }
 
 function resolveFilePath(dataDir?: string): string {
-  return join(dataDir ?? process.env.N8N_CHECK_DATA_DIR ?? DEFAULT_DATA_DIR, TRUST_FILE);
+  return join(dataDir ?? process.env.N8N_VET_DATA_DIR ?? DEFAULT_DATA_DIR, TRUST_FILE);
 }
 
 function resolveDir(dataDir?: string): string {
-  return dataDir ?? process.env.N8N_CHECK_DATA_DIR ?? DEFAULT_DATA_DIR;
+  return dataDir ?? process.env.N8N_VET_DATA_DIR ?? DEFAULT_DATA_DIR;
 }
 
 function emptyState(workflowId: string): TrustState {

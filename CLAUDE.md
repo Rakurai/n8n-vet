@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-n8n-check is a guardrailed validation control tool for agent-built n8n workflows. It reduces agent thrash by keeping validation local, bounded, diagnostic, and cheap — focusing on workflow slices and paths rather than whole-workflow reruns.
+n8n-vet is a guardrailed validation control tool for agent-built n8n workflows. It reduces agent thrash by keeping validation local, bounded, diagnostic, and cheap — focusing on workflow slices and paths rather than whole-workflow reruns.
 
 **Status:** Pre-implementation. The repo contains design docs only (vision, PRD, scope, concepts, tech stack, feasibility, research). No source code, package.json, or build system exists yet.
 
@@ -76,3 +76,10 @@ These are non-negotiable product principles that should guide all implementation
 - For multi-line scripts: write to `.scratch/` first, then run. **Never use `python3 -c` or `bash -c` with inline multi-line code** — `#` characters (comments, dict literals, f-strings) after newlines inside quoted arguments trigger path-validation security warnings that block autonomous agents. Always write the script to `.scratch/` and execute the file.
 - **Never use compound shell commands** (`&&`, `||`, `;`, pipes). Each Bash call must be a single command. If you need sequential steps, make separate Bash calls or write a script to `.scratch/` and run it. Compound commands trigger approval prompts that block autonomous agents.
 - **Never use Bash for read-only verification.** File existence checks (`test -f`, `[ -f`), content searches (`grep -q`), and file listing loops (`for f in ...`) must use the Glob, Grep, or Read tools instead. Reserve Bash exclusively for commands that require execution (git, lint, test runners, docker, etc.).
+
+## Active Technologies
+- TypeScript (strict mode, ESM) on Node.js 20+ + All internal subsystems (static-analysis, trust, guardrails, execution, diagnostics), `@n8n-as-code/transformer` (workflow parsing), `zod` (edge validation) (007-request-interpretation)
+- `.n8n-vet/trust-state.json` (trust persistence, handled by trust subsystem), `.n8n-vet/snapshots/` (workflow graph snapshots, new in this phase) (007-request-interpretation)
+
+## Recent Changes
+- 007-request-interpretation: Added TypeScript (strict mode, ESM) on Node.js 20+ + All internal subsystems (static-analysis, trust, guardrails, execution, diagnostics), `@n8n-as-code/transformer` (workflow parsing), `zod` (edge validation)

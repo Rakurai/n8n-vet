@@ -266,7 +266,7 @@ The n8n ecosystem provides four practical sources of output shape information:
 3. **Pin data** -- concrete known shapes for manually authored test data.
 4. **Node behavior classification** -- `needsPinData()` and `SCRIPTING_NODE_TYPES` let you classify nodes into shape-preserving, shape-replacing, or shape-opaque categories without needing the actual schema.
 
-For n8n-check's purposes, the most valuable insight is the **node category classification** rather than exact schemas. Knowing whether a node preserves, augments, or replaces `$json` is sufficient to detect the highest-value bug class (data loss through replacement). Exact schema matching is a bonus that can be layered on top using the JSON Schema discovery and execution inference systems that already exist.
+For n8n-vet's purposes, the most valuable insight is the **node category classification** rather than exact schemas. Knowing whether a node preserves, augments, or replaces `$json` is sufficient to detect the highest-value bug class (data loss through replacement). Exact schema matching is a bonus that can be layered on top using the JSON Schema discovery and execution inference systems that already exist.
 
 The Set node's `options.include` parameter is a particularly important signal -- it directly controls whether the node preserves or drops input fields.
 

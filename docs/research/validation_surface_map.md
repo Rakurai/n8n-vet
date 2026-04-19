@@ -1,16 +1,16 @@
 # Validation Surface Map
 
-> Synthesis document for the n8n-check project. Maps the complete set of interaction surfaces, capabilities, and gaps across n8n platform and n8n-as-code, organized by what n8n-check needs to do. This is the "how do we actually build this" reference.
+> Synthesis document for the n8n-vet project. Maps the complete set of interaction surfaces, capabilities, and gaps across n8n platform and n8n-as-code, organized by what n8n-vet needs to do. This is the "how do we actually build this" reference.
 
 ---
 
 ## 1. Interaction Channels
 
-n8n-check can interact with n8n workflows through these channels:
+n8n-vet can interact with n8n workflows through these channels:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                    n8n-check                             │
+│                    n8n-vet                             │
 └─────┬────────────┬─────────────┬─────────────┬──────────┘
       │            │             │             │
       ▼            ▼             ▼             ▼
@@ -66,7 +66,7 @@ What can be validated without touching the n8n instance.
 | Workflow structure (connections) | TypeScript AST parsing via transformer | Disconnected nodes |
 | All credentials available | n8nac `workflow credential-required` | Missing credentials |
 
-### Gaps that n8n-check must fill
+### Gaps that n8n-vet must fill
 
 | Check | Status | Catches |
 |---|---|---|
@@ -159,7 +159,7 @@ POST /workflows/:workflowId/run
 
 This executes only the subgraph from trigger to destination node, with pin data for mocking. This is the closest platform primitive to "validate a slice."
 
-**Gap:** This endpoint is designed for the n8n editor's partial execution feature. It's not exposed through MCP or n8nac. n8n-check would need to call the REST API directly.
+**Gap:** This endpoint is designed for the n8n editor's partial execution feature. It's not exposed through MCP or n8nac. n8n-vet would need to call the REST API directly.
 
 ### Pin data strategy for slice validation
 
@@ -265,7 +265,7 @@ When a node fails:
 
 **Problem:** Error messages are often generic. "Invalid JSON in response body" without the actual body. "Could not get parameter" without which expression failed. Getting useful diagnostics requires pulling full execution data and manually correlating.
 
-### What n8n-check must build for diagnostics
+### What n8n-vet must build for diagnostics
 
 1. **Error-focused extraction** — Given an execution, extract only the failed node(s) with their input data and error message
 2. **Path observation** — Which nodes actually executed, in what order, with what status
@@ -291,13 +291,13 @@ What the platform tells us about what changed and what hasn't.
 - Triggered by: parameter changes, connection changes, node insertion/deletion, pin data modifications
 - Granularity: **per-node** — specific nodes are flagged dirty
 
-**Gap:** n8nac does not expose dirty node information. The n8n editor tracks it internally but doesn't surface it through API or MCP. n8n-check would need to compute node-level diffs from two workflow snapshots.
+**Gap:** n8nac does not expose dirty node information. The n8n editor tracks it internally but doesn't surface it through API or MCP. n8n-vet would need to compute node-level diffs from two workflow snapshots.
 
 ### Workflow checksum (n8n core)
 
 `packages/workflow/src/workflow-checksum.ts` computes a hash over nodes, connections, settings, and pinData. Could potentially be used to detect whether a subgraph has changed by computing checksum over a filtered set of nodes.
 
-### What n8n-check must build for trust tracking
+### What n8n-vet must build for trust tracking
 
 1. **Node-level change detection** — Diff two workflow snapshots to identify exactly which nodes and connections changed
 2. **Trusted boundary metadata** — Record which boundaries have been validated and what their expected interfaces are
@@ -319,7 +319,7 @@ Sub-workflows in n8n provide natural trust boundaries.
 
 ### Sub-workflow source options
 
-| Source | Description | n8n-check relevance |
+| Source | Description | n8n-vet relevance |
 |---|---|---|
 | Database | Select workflow from n8n instance | Most common for deployed workflows |
 | Local File | Path to workflow JSON file | Direct access for static analysis |
@@ -337,7 +337,7 @@ For sub-workflows with "Accept all data" input mode:
 
 **Gap:** n8n has no formal output contract for sub-workflows. The output is whatever the last node produces. There's no declaration of expected output shape.
 
-### Relevance to n8n-check
+### Relevance to n8n-vet
 
 Sub-workflows are the most natural candidates for trusted boundaries:
 - They have explicit inputs (sometimes typed)
@@ -345,7 +345,7 @@ Sub-workflows are the most natural candidates for trusted boundaries:
 - They can be tested independently
 - They can be mocked in parent workflow validation by pinning the Execute Sub-workflow node
 
-n8n-check could establish sub-workflow boundaries as trusted interfaces by:
+n8n-vet could establish sub-workflow boundaries as trusted interfaces by:
 1. Recording the input/output contract from a successful execution
 2. Treating the boundary as trusted unless the sub-workflow changes
 3. Pinning the sub-workflow call in parent validation when the sub-workflow hasn't changed
@@ -354,7 +354,7 @@ n8n-check could establish sub-workflow boundaries as trusted interfaces by:
 
 ## 7. Evaluation Framework Integration Surface
 
-n8n's evaluation framework is a potential complement, not a replacement, for n8n-check.
+n8n's evaluation framework is a potential complement, not a replacement, for n8n-vet.
 
 ### What evaluations provide
 
@@ -384,7 +384,7 @@ n8n's evaluation framework is a potential complement, not a replacement, for n8n
 
 ## 8. Gap Analysis Summary
 
-### The three layers needed for n8n-check
+### The three layers needed for n8n-vet
 
 ```
 Layer 1: STATIC ANALYSIS (offline, fast, free)
@@ -416,7 +416,7 @@ Layer 3: DIAGNOSTIC OUTPUT (post-execution)
 
 ### Platform capabilities that should not be rebuilt
 
-These exist and work — n8n-check should use them as-is:
+These exist and work — n8n-vet should use them as-is:
 
 - Node schema validation (n8nac `skills validate`)
 - Pin data execution (n8n MCP `test_workflow`)
@@ -431,7 +431,7 @@ These exist and work — n8n-check should use them as-is:
 
 ## 9. Access Pattern Summary
 
-For quick reference: how to do common operations relevant to n8n-check.
+For quick reference: how to do common operations relevant to n8n-vet.
 
 | Operation | Best approach |
 |---|---|

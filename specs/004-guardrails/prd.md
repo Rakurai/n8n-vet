@@ -149,7 +149,7 @@ Fixed order. First non-proceed action wins. Two tiers.
    - Changed nodes do not intersect the prior failing path
    - The prior failure classification is not `'external-service'` or `'platform'`
 
-   **Prior run context sourcing:** `PriorRunContext` is derived from the most recent `DiagnosticSummary` cached alongside the trust state in `.n8n-check/`. When a validation run completes, the diagnostic summary is persisted. On the next run, the guardrail evaluator reads this cached summary to extract the prior run's failure status, failing path (from `executedPath`), and error classification. If no cached summary exists (first run), the DeFlaker check is skipped (condition 1 cannot be met).
+   **Prior run context sourcing:** `PriorRunContext` is derived from the most recent `DiagnosticSummary` cached alongside the trust state in `.n8n-vet/`. When a validation run completes, the diagnostic summary is persisted. On the next run, the guardrail evaluator reads this cached summary to extract the prior run's failure status, failing path (from `executedPath`), and error classification. If no cached summary exists (first run), the DeFlaker check is skipped (condition 1 cannot be met).
 
    When all conditions hold: return `{ action: 'warn', explanation: 'Prior failure path does not intersect current changes — failure may be unrelated to this edit.' }`.
 

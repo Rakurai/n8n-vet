@@ -387,11 +387,11 @@ Plugin components:
 * `hooks/` — `SessionStart` hook for dependency installation into `${CLAUDE_PLUGIN_DATA}`
 * `plugin.json` — manifest with `userConfig` for n8n host/API key (prompted at enable time, sensitive values stored in keychain)
 * `bin/` — CLI binary added to PATH when plugin is active
-* `${CLAUDE_PLUGIN_DATA}` — persistent directory for trust state and snapshots (replaces `.n8n-check/` in project root)
+* `${CLAUDE_PLUGIN_DATA}` — persistent directory for trust state and snapshots (replaces `.n8n-vet/` in project root)
 
 ### Standalone MCP server (secondary distribution)
 
-The same MCP server can run independently via `npx` or direct installation for use with other MCP clients (VS Code Copilot, Claude Desktop, other agents). Trust state falls back to `.n8n-check/` in the project directory when not running as a plugin.
+The same MCP server can run independently via `npx` or direct installation for use with other MCP clients (VS Code Copilot, Claude Desktop, other agents). Trust state falls back to `.n8n-vet/` in the project directory when not running as a plugin.
 
 ### Why dual
 

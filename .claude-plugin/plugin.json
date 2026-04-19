@@ -1,11 +1,11 @@
 {
-  "name": "n8n-check",
+  "name": "n8n-vet",
   "version": "0.1.0",
   "description": "Guardrailed validation control for agent-built n8n workflows",
   "author": {
-    "name": "n8n-check"
+    "name": "n8n-vet"
   },
-  "repository": "https://github.com/n8n-check/n8n-check",
+  "repository": "https://github.com/n8n-vet/n8n-vet",
   "license": "MIT",
   "keywords": ["n8n", "workflow", "validation", "testing", "mcp"],
   "userConfig": {

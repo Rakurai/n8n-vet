@@ -29,14 +29,14 @@ Implement the trust and change subsystem: local trust state persistence, node-le
 **Out of scope:**
 - How guardrails consume trust state (Phase 4)
 - How request interpretation loads/saves trust (Phase 7)
-- Plugin storage variant details (Phase 9) — storage path is configurable via `N8N_CHECK_DATA_DIR`
+- Plugin storage variant details (Phase 9) — storage path is configurable via `N8N_VET_DATA_DIR`
 
 ## Inputs and Outputs
 
 ### Inputs
 
 - **Two `WorkflowGraph` snapshots** (previous and current) for change detection. Each contains a `nodes` map keyed by node name, plus `forward` and `backward` adjacency maps.
-- **Persisted `TrustState`** loaded from local storage (`.n8n-check/trust-state.json` or `$N8N_CHECK_DATA_DIR/trust-state.json`).
+- **Persisted `TrustState`** loaded from local storage (`.n8n-vet/trust-state.json` or `$N8N_VET_DATA_DIR/trust-state.json`).
 - **Validation results** from completed runs: node identities, validation layer, fixture hash, and run metadata — used to record new trust.
 
 ### Outputs
@@ -146,7 +146,7 @@ Forward-only propagation through the workflow graph:
 
 ### 7. Trust persistence
 
-**Storage path:** `.n8n-check/trust-state.json` (standalone default). Configurable via `N8N_CHECK_DATA_DIR` environment variable.
+**Storage path:** `.n8n-vet/trust-state.json` (standalone default). Configurable via `N8N_VET_DATA_DIR` environment variable.
 
 **Storage format:** Serialized `TrustState` per workflow, keyed by workflow ID.
 

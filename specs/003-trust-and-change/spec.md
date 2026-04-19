@@ -86,7 +86,7 @@ Trust state must survive across validation sessions. The system must write trust
 3. **Given** no trust state file exists at the storage path, **When** the system loads trust state, **Then** it returns an empty trust state without raising an error.
 4. **Given** a corrupt trust state file (invalid JSON or schema mismatch), **When** the system loads trust state, **Then** it raises a typed error with the file path and parse error details.
 5. **Given** a trust state file that contains records for workflow "wf-1" but the system requests trust for "wf-2", **When** the system loads trust, **Then** it returns empty trust for "wf-2" without error.
-6. **Given** the environment variable `N8N_CHECK_DATA_DIR` is set, **When** the system determines the storage path, **Then** it uses that directory instead of the default `.n8n-check/`.
+6. **Given** the environment variable `N8N_VET_DATA_DIR` is set, **When** the system determines the storage path, **Then** it uses that directory instead of the default `.n8n-check/`.
 7. **Given** a trust state file with a `schemaVersion` that does not match the current expected version, **When** the system loads trust state, **Then** it discards the file contents and returns empty trust state without raising an error.
 
 ---
@@ -155,7 +155,7 @@ The system must produce stable, deterministic hashes of node content so that ide
 - **FR-010**: System MUST invalidate trust via forward-only BFS propagation: trust-breaking changes seed the invalidation set, then BFS follows forward adjacency edges to invalidate downstream nodes.
 - **FR-011**: System MUST treat `position-only` and `metadata-only` changes as trust-preserving (they do NOT trigger invalidation).
 - **FR-012**: System MUST add newly added nodes, nodes with connection changes, and nodes with trust-breaking changes to the invalidation seed set.
-- **FR-013**: System MUST persist `TrustState` to a local JSON file at `.n8n-check/trust-state.json` (default) or `$N8N_CHECK_DATA_DIR/trust-state.json` (when configured). The persisted file MUST include a `schemaVersion` field for forward compatibility.
+- **FR-013**: System MUST persist `TrustState` to a local JSON file at `.n8n-check/trust-state.json` (default) or `$N8N_VET_DATA_DIR/trust-state.json` (when configured). The persisted file MUST include a `schemaVersion` field for forward compatibility.
 - **FR-014**: System MUST load trust state from the persistence file, returning empty trust state when the file is missing (no error). When the file exists but its `schemaVersion` does not match the current expected version, the system MUST discard the file contents and start with empty trust (safe degradation, no error raised).
 - **FR-015**: System MUST raise a typed error with file path and parse details when the trust state file is corrupt (invalid JSON or schema mismatch).
 - **FR-016**: System MUST implement `isTrusted(node)` returning true only when a trust record exists AND the recorded content hash matches the node's current content hash.

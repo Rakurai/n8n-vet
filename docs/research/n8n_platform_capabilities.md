@@ -1,6 +1,6 @@
 # n8n Platform Capabilities Reference
 
-> Research document for the n8n-check project. Catalogs all n8n platform functionality relevant to workflow validation, testing, execution control, mocking, and diagnostics. Sources: n8n repository source code and n8n-docs official documentation.
+> Research document for the n8n-vet project. Catalogs all n8n platform functionality relevant to workflow validation, testing, execution control, mocking, and diagnostics. Sources: n8n repository source code and n8n-docs official documentation.
 
 ---
 
@@ -87,7 +87,7 @@ When `destinationNode` is provided:
 - `inclusive` mode executes the destination node itself
 - `exclusive` mode stops just before it
 
-**Relevance to n8n-check:** This is the closest platform primitive to "validate a slice." A destination node effectively bounds execution to a subgraph.
+**Relevance to n8n-vet:** This is the closest platform primitive to "validate a slice." A destination node effectively bounds execution to a subgraph.
 
 ### Partial execution utilities
 
@@ -135,7 +135,7 @@ class DirectedGraph {
 }
 ```
 
-**Relevance to n8n-check:** These utilities handle subgraph extraction, cycle detection, and execution stack reconstruction — all needed for slice-based validation.
+**Relevance to n8n-vet:** These utilities handle subgraph extraction, cycle detection, and execution stack reconstruction — all needed for slice-based validation.
 
 ---
 
@@ -180,7 +180,7 @@ The `needsPinData()` utility determines this:
 
 ### Limitations
 
-- **Binary pin data: GUI-only limitation** — the n8n editor UI disables pin data for nodes whose output contains binary data (locale string: "Pin Data is disabled as this node's output contains binary data"). However, the engine's `IPinData` type includes `binary?: IBinaryKeyData` on `INodeExecutionData`, and the execution engine does not reject binary pin data passed programmatically. Since n8n-check constructs pin data via the API (not the editor GUI), binary pin data is technically possible but untested. For practical purposes, n8n-check should focus on JSON pin data and treat binary-output nodes as requiring execution rather than mocking.
+- **Binary pin data: GUI-only limitation** — the n8n editor UI disables pin data for nodes whose output contains binary data (locale string: "Pin Data is disabled as this node's output contains binary data"). However, the engine's `IPinData` type includes `binary?: IBinaryKeyData` on `INodeExecutionData`, and the execution engine does not reject binary pin data passed programmatically. Since n8n-vet constructs pin data via the API (not the editor GUI), binary pin data is technically possible but untested. For practical purposes, n8n-vet should focus on JSON pin data and treat binary-output nodes as requiring execution rather than mocking.
 - **Development only** — production executions ignore all pinned data
 - **Manual construction** — pin data must be explicitly provided; there's no automatic inference of "good enough" mock data
 - **No partial pinning within a node** — a node is either fully pinned or fully executed
@@ -192,7 +192,7 @@ The `needsPinData()` utility determines this:
 - Copy data from previous executions
 - Yellow "dirty node" indicator when pinned data may be stale
 
-### Relevance to n8n-check
+### Relevance to n8n-vet
 
 Pin data is the primary mechanism for:
 - Mocking expensive/external nodes during validation
@@ -452,7 +452,7 @@ interface INode {
 
 `packages/workflow/src/workflow-checksum.ts` calculates a hash over nodes, connections, settings, and pinData. Used internally to detect whether a workflow has been modified.
 
-**Relevance to n8n-check:** Checksum could be used to detect whether a workflow (or slice of a workflow) has changed since last validation, supporting the "trusted boundary" concept.
+**Relevance to n8n-vet:** Checksum could be used to detect whether a workflow (or slice of a workflow) has changed since last validation, supporting the "trusted boundary" concept.
 
 ---
 
@@ -499,7 +499,7 @@ Expressions are sandboxed. Blocked constructs include:
 - Reserved variable access
 - Class instantiation
 
-### Relevance to n8n-check
+### Relevance to n8n-vet
 
 The expression system is the primary mechanism for data flow between nodes. Expression references like `$json.field` and `$('NodeName').first().json.field` are the critical links that can break when upstream nodes change. Any data flow analysis tool must parse these references.
 
@@ -552,7 +552,7 @@ function validateNodeParameters<T>(nodeType, nodeParameters): ValidationResult
 - **Output shape compatibility** — whether a node's output matches what downstream nodes expect
 - **Data loss through passthrough** — whether an HTTP Request or similar node replaces `$json` with its own response
 
-This gap is the central motivation for n8n-check.
+This gap is the central motivation for n8n-vet.
 
 ---
 
@@ -610,9 +610,9 @@ n8n has a built-in evaluation system for AI workflow quality testing.
 - Metric-based evaluations require Pro/Enterprise plans
 - No data flow analysis or expression reference checking
 
-### Relevance to n8n-check
+### Relevance to n8n-vet
 
-Evaluations serve a different purpose than n8n-check. They measure **output quality** (is the LLM response good?), while n8n-check targets **structural correctness** (does the data flow work?). However:
+Evaluations serve a different purpose than n8n-vet. They measure **output quality** (is the LLM response good?), while n8n-vet targets **structural correctness** (does the data flow work?). However:
 - The `Check If Evaluating` operation could be useful for dual-mode workflows
 - Data Tables could store validation fixtures
 - The evaluation execution mode (`'evaluation'`) could potentially be leveraged for validation runs
@@ -774,9 +774,9 @@ interface IExecutionContext {
 
 Sub-workflows inherit parent context, including credentials. Redaction policies on child workflows override parent.
 
-### Relevance to n8n-check
+### Relevance to n8n-vet
 
-Sub-workflows are natural **trusted boundaries** in the n8n-check model. A sub-workflow with a stable interface (known input/output shape) can be treated as a trusted region when validating the parent workflow. The `Local File` source option is particularly relevant for n8n-as-code workflows.
+Sub-workflows are natural **trusted boundaries** in the n8n-vet model. A sub-workflow with a stable interface (known input/output shape) can be treated as a trusted region when validating the parent workflow. The `Local File` source option is particularly relevant for n8n-as-code workflows.
 
 ---
 
@@ -797,9 +797,9 @@ n8n tracks "dirty" nodes — nodes with potentially stale output — via a yello
 
 Execute the node again (manual trigger or partial execution).
 
-### Relevance to n8n-check
+### Relevance to n8n-vet
 
-The dirty node concept aligns directly with n8n-check's "validation locality" principle. Dirty nodes identify the minimum set of nodes needing re-validation after a change. This information could feed into validation target selection.
+The dirty node concept aligns directly with n8n-vet's "validation locality" principle. Dirty nodes identify the minimum set of nodes needing re-validation after a change. This information could feed into validation target selection.
 
 ---
 
@@ -840,7 +840,7 @@ n8n's Data Tables provide structured in-instance data storage.
 - Cannot be accessed directly from Code node
 - No cross-project access
 
-### Relevance to n8n-check
+### Relevance to n8n-vet
 
 Data tables could serve as:
 - Fixture storage for validation inputs
@@ -852,9 +852,9 @@ Limitation: 50MB per instance and no Code node access make them more suited for 
 
 ---
 
-## 15. Capability Summary for n8n-check
+## 15. Capability Summary for n8n-vet
 
-### What n8n provides that n8n-check can build on
+### What n8n provides that n8n-vet can build on
 
 | Capability | Mechanism | Relevance |
 |---|---|---|
@@ -869,7 +869,7 @@ Limitation: 50MB per instance and no Code node access make them more suited for 
 | Sub-workflow boundaries | Execute Sub-workflow node | Natural trust boundaries |
 | Expression parsing | `WorkflowExpression`, `WorkflowDataProxy` | Understand data flow references |
 
-### What n8n does NOT provide (gaps for n8n-check)
+### What n8n does NOT provide (gaps for n8n-vet)
 
 | Gap | Description |
 |---|---|

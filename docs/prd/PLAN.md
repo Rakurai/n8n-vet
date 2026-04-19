@@ -64,7 +64,7 @@ src/
   plugin.json        ← plugin manifest (name, version, userConfig)
 skills/
   validate-workflow/
-    SKILL.md         ← teaches agent when/how to use n8n-check tools
+    SKILL.md         ← teaches agent when/how to use n8n-vet tools
 hooks/
   hooks.json         ← SessionStart: install deps into CLAUDE_PLUGIN_DATA
 .mcp.json            ← bundles MCP server for plugin auto-start
@@ -179,7 +179,7 @@ hooks/
    - Trust queries: `isTrusted()`, `getTrustedBoundaries()`, `getUntrustedNodes()`, `getRerunAssessment()`
 
 4. **Persistence** (`src/trust/persistence.ts`):
-   - Read/write `.n8n-check/trust-state.json`
+   - Read/write `.n8n-vet/trust-state.json`
    - Handle missing/corrupt file (start with empty trust)
    - Workflow-level quick check: compare full workflow hash before node-level diff
 
@@ -341,7 +341,7 @@ hooks/
 4. **Snapshot management** (`src/orchestrator/snapshots.ts`):
    - Save current graph after each successful validation
    - Load previous snapshot for change detection
-   - Store in `.n8n-check/` alongside trust state
+   - Store in `.n8n-vet/` alongside trust state
 
 **Deliverable:** Given a `ValidationRequest`, produce a `DiagnosticSummary` by coordinating all subsystems.
 
@@ -366,7 +366,7 @@ hooks/
    - Dry-run guardrail evaluation for `explain`
 
 2. **CLI** (`src/cli/index.ts`):
-   - Commands: `n8n-check validate`, `n8n-check trust`, `n8n-check explain`
+   - Commands: `n8n-vet validate`, `n8n-vet trust`, `n8n-vet explain`
    - Options mirror MCP tool inputs
    - `--json` outputs raw JSON (identical to MCP output)
    - Default output: human-readable formatted summary with color-coded status
@@ -386,7 +386,7 @@ hooks/
 **Work:**
 
 1. **Plugin manifest** (`.claude-plugin/plugin.json`):
-   - `name`: `n8n-check`
+   - `name`: `n8n-vet`
    - `version`: synced with `package.json`
    - `userConfig`: `n8n_host` (non-sensitive), `n8n_api_key` (sensitive — stored in keychain)
    - `description`, `author`, `repository`, `keywords`
@@ -406,16 +406,16 @@ hooks/
 
 5. **Trust state storage**:
    - When running as plugin: trust state stored in `${CLAUDE_PLUGIN_DATA}/trust/`
-   - When running standalone: trust state stored in `.n8n-check/` in project root
+   - When running standalone: trust state stored in `.n8n-vet/` in project root
    - MCP server detects environment via `CLAUDE_PLUGIN_DATA` env var presence
 
-6. **CLI binary** (`bin/n8n-check`):
+6. **CLI binary** (`bin/n8n-vet`):
    - Symlink or wrapper that invokes `dist/cli/index.js`
    - Available as bare command in Claude Code's Bash tool when plugin is active
 
 **Deliverable:** `claude --plugin-dir .` loads the plugin, MCP tools appear, skills are discoverable.
 
-**Test:** Plugin loads without errors. MCP tools respond. Skill appears in `/help`. `SessionStart` hook installs deps. Trust state persists in `${CLAUDE_PLUGIN_DATA}`. Standalone `npx n8n-check` still works.
+**Test:** Plugin loads without errors. MCP tools respond. Skill appears in `/help`. `SessionStart` hook installs deps. Trust state persists in `${CLAUDE_PLUGIN_DATA}`. Standalone `npx n8n-vet` still works.
 
 ---
 
@@ -484,8 +484,8 @@ Some phases can overlap:
 
 The system is shippable when:
 
-1. `n8n-check validate <workflow.ts>` produces a correct `DiagnosticSummary` for static analysis
-2. `n8n-check validate <workflow.ts> --layer both` executes against n8n and includes execution evidence
+1. `n8n-vet validate <workflow.ts>` produces a correct `DiagnosticSummary` for static analysis
+2. `n8n-vet validate <workflow.ts> --layer both` executes against n8n and includes execution evidence
 3. Trust state persists across runs — second validation of an unchanged workflow reuses trust
 4. Guardrails narrow a `workflow`-scoped request to the changed slice
 5. MCP server registers 3 tools and responds correctly to agent calls

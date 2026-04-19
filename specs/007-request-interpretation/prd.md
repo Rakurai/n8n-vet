@@ -18,7 +18,7 @@ Implement the system's control center: receive a validation request, resolve the
 **In scope:**
 - 10-step sequential pipeline: parse, load trust, compute changes, resolve target, consult guardrails, run validation, synthesize diagnostics, update trust, persist snapshot, return summary
 - Workflow parsing dispatch (.ts and .json via appropriate parser)
-- Trust state loading from `.n8n-check/trust-state.json`
+- Trust state loading from `.n8n-vet/trust-state.json`
 - Change set computation with forward invalidation via content hash comparison
 - Target resolution for all `AgentTarget` kinds: `nodes`, `changed`, `workflow`
 - Target resolution producing `ValidationTarget` kinds: `slice`, `path`
@@ -139,7 +139,7 @@ If parsing fails at any step, return a diagnostic with `status: 'error'`. This i
 
 ### 3. Trust state loading
 
-1. Read `.n8n-check/trust-state.json`.
+1. Read `.n8n-vet/trust-state.json`.
 2. Find the entry matching the current workflow ID.
 3. If no entry found, start with empty trust state (no trusted nodes, no connections hash).
 
@@ -147,7 +147,7 @@ If parsing fails at any step, return a diagnostic with `status: 'error'`. This i
 
 **When previous snapshot or trust state with prior hash is available:**
 
-1. Parse previous workflow snapshot (stored in `.n8n-check/`) into `WorkflowGraph`.
+1. Parse previous workflow snapshot (stored in `.n8n-vet/`) into `WorkflowGraph`.
 2. Compute `NodeChangeSet` via `computeChangeSet(previous, current)`.
 3. Apply `invalidateTrust(trustState, changeSet, graph)` to produce updated trust state.
 
@@ -268,7 +268,7 @@ Trust is recorded only on pass. Failed, errored, or skipped validations do not u
 
 ### Snapshot management
 
-After each successful validation, save the current `WorkflowGraph` as the previous snapshot for the next run. Stored in `.n8n-check/`. The agent does not manage snapshots — this is automatic and internal.
+After each successful validation, save the current `WorkflowGraph` as the previous snapshot for the next run. Stored in `.n8n-vet/`. The agent does not manage snapshots — this is automatic and internal.
 
 ## Error Conditions
 
@@ -286,7 +286,7 @@ After each successful validation, save the current `WorkflowGraph` as the previo
 
 - 10-step pipeline executes in correct order with no step reordering
 - Workflow parsing handles `.ts` and `.json` via appropriate parser, errors produce `status: 'error'` diagnostic
-- Trust state loading from `.n8n-check/trust-state.json` with empty trust when entry is missing
+- Trust state loading from `.n8n-vet/trust-state.json` with empty trust when entry is missing
 - Change set computation with forward invalidation when previous snapshot or trust hash is available
 - Approximate change detection via content hash comparison when only trust state (no full snapshot) is available
 - Target resolution for all `AgentTarget` kinds: `nodes` (with existence verification), `changed` (RTS/TIA heuristic with forward/backward propagation), `workflow` (all nodes)
@@ -299,12 +299,12 @@ After each successful validation, save the current `WorkflowGraph` as the previo
 - Static analysis runs before execution when layer is `'both'`; static errors do not prevent execution
 - Execution strategy selection: `destinationNode` set uses bounded REST, `'workflow'` target uses MCP smoke, slice target computes furthest downstream as destination
 - Trust updated only on `status: 'pass'`, only for validated (not mocked, not skipped) nodes
-- Snapshot saved after successful validation in `.n8n-check/`
+- Snapshot saved after successful validation in `.n8n-vet/`
 - Multi-path validation runs sequentially with independent static and execution passes per path
 - Integration tests wiring all subsystems with mocked subsystem interfaces (static-only pipeline, mock execution pipeline, guardrail routing for each action type)
 
 ## Decisions
 
-1. **Snapshot management**: automatic, internal. Stored in `.n8n-check/`. The agent never manages snapshots directly.
+1. **Snapshot management**: automatic, internal. Stored in `.n8n-vet/`. The agent never manages snapshots directly.
 2. **Multi-path execution**: sequential. Each path gets its own validation pass. Optimization to skip shared-node re-execution is deferred to a future phase.
 3. **Uniform target and layer**: no partial-static/partial-execution split within a single validation run. The resolved target and effective layer apply uniformly to all nodes in scope.

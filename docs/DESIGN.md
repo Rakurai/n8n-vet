@@ -55,12 +55,12 @@ The architecture must serve these goals, derived from the vision, PRD, and engin
                   ┌────────────▼─────────────┐
                   │       Coding agent        │
                   │  (edits workflows,        │
-                  │   calls n8n-check,        │
+                  │   calls n8n-vet,        │
                   │   consumes diagnostics)   │
                   └────────────┬─────────────┘
                                │ MCP tool calls
                   ┌────────────▼─────────────┐
-                  │        n8n-check          │
+                  │        n8n-vet          │
                   └──┬──────┬──────┬─────────┘
                      │      │      │
           ┌──────────▼┐  ┌─▼────┐ │
@@ -75,7 +75,7 @@ The architecture must serve these goals, derived from the vision, PRD, and engin
 
 **Local workflow artifacts** are the source of truth. Workflows are authored as n8n-as-code TypeScript files and versioned locally. n8n is a deployment/runtime surface, not the authoring environment.
 
-**n8nac** is a direct dependency. n8n-check consumes the transformer package (workflow parsing), the skills package (schema validation, node type information), and configuration discovery from the CLI package.
+**n8nac** is a direct dependency. n8n-vet consumes the transformer package (workflow parsing), the skills package (schema validation, node type information), and configuration discovery from the CLI package.
 
 **n8n instance** is the execution backend. It is required only for execution-backed validation. Static analysis operates entirely offline.
 
@@ -83,7 +83,7 @@ The architecture must serve these goals, derived from the vision, PRD, and engin
 
 **n8n MCP tools** are used for whole-workflow smoke tests (`test_workflow`), execution result inspection (`get_execution`), and pin data schema discovery (`prepare_test_pin_data`). Internal MCP use is optional and capability-driven, not ideological.
 
-**The agent** is the sole direct consumer. It calls n8n-check's MCP tool surface, receives structured diagnostic summaries, and decides what to fix next.
+**The agent** is the sole direct consumer. It calls n8n-vet's MCP tool surface, receives structured diagnostic summaries, and decides what to fix next.
 
 **The supervising human** reads diagnostic summaries when needed but does not operate the tool directly.
 
@@ -304,7 +304,7 @@ The system should recommend static-only validation when the change is purely str
 - n8n-as-code TypeScript workflow files: parsed via the n8nac transformer package into a graph representation
 - n8n JSON workflow files: parsed via the n8nac transformer's JSON parser
 - Node type schemas: accessed via the n8nac skills package's schema provider
-- Trust state: maintained locally by n8n-check
+- Trust state: maintained locally by n8n-vet
 
 No n8n instance or network access required. This is the foundation for all static analysis.
 
@@ -518,7 +518,7 @@ The following design tensions were identified during initial design and have sin
 - **Automatic slice computation vs. explicit targeting** → resolved in [request-interpretation.md](spec/request-interpretation.md): auto-detect is the default when no target is specified; explicit targeting overrides
 - **Trust state lifetime and scope** → resolved in [trust-and-change.md](spec/trust-and-change.md): persists across sessions per workflow, scoped to project directory, forward-only invalidation on change
 - **Pin data sourcing strategy** → resolved in [execution.md](spec/execution.md): four-tier sourcing (agent fixtures → cached artifacts → execution history → empty stubs)
-- **Push/deploy coordination** → resolved in [execution.md](spec/execution.md): n8n-check does not auto-push; push is the agent's responsibility via n8nac
+- **Push/deploy coordination** → resolved in [execution.md](spec/execution.md): n8n-vet does not auto-push; push is the agent's responsibility via n8nac
 - **Sub-workflow boundary treatment** → resolved in [static-analysis.md](spec/static-analysis.md): sub-workflows are opaque for v1
 - **Guardrail aggressiveness calibration** → resolved in [guardrails.md](spec/guardrails.md): initial default thresholds (>5 nodes, <20% changed, >70% of workflow) defined as tunable constants; self-calibrating thresholds deferred to post-v1
 
@@ -529,12 +529,12 @@ The following design tensions were identified during initial design and have sin
 The following items were deferred to specification work and have since been resolved:
 
 - **Exact MCP tool definitions** → resolved in [mcp-surface.md](spec/mcp-surface.md): `validate`, `trust_status`, `explain` with full input/output schemas
-- **Exact CLI command structure** → resolved in [mcp-surface.md](spec/mcp-surface.md): `n8n-check validate|trust|explain` with options mirroring MCP inputs
+- **Exact CLI command structure** → resolved in [mcp-surface.md](spec/mcp-surface.md): `n8n-vet validate|trust|explain` with options mirroring MCP inputs
 - **Internal module boundaries or class hierarchies** → resolved in [PLAN.md](spec/PLAN.md): `src/static-analysis/`, `src/trust/`, `src/guardrails/`, `src/execution/`, `src/diagnostics/`, `src/orchestrator/`, `src/mcp/`, `src/cli/`
-- **Trust state persistence format or file location** → resolved in [trust-and-change.md](spec/trust-and-change.md): `.n8n-check/trust-state.json` (standalone) or `${CLAUDE_PLUGIN_DATA}/trust/` (plugin mode)
+- **Trust state persistence format or file location** → resolved in [trust-and-change.md](spec/trust-and-change.md): `.n8n-vet/trust-state.json` (standalone) or `${CLAUDE_PLUGIN_DATA}/trust/` (plugin mode)
 - **Diagnostic summary JSON schema** → resolved in [INDEX.md](spec/INDEX.md): `DiagnosticSummary` with all sub-types
 - **Pin data generation strategy** → resolved in [execution.md](spec/execution.md): four-tier sourcing (agent fixtures → cached artifacts → execution history → empty stubs)
-- **Push/deploy automation policy** → resolved in [execution.md](spec/execution.md): n8n-check does not auto-push; push is the agent's responsibility via n8nac
+- **Push/deploy automation policy** → resolved in [execution.md](spec/execution.md): n8n-vet does not auto-push; push is the agent's responsibility via n8nac
 - **Guardrail threshold values** → resolved in [guardrails.md](spec/guardrails.md): initial defaults (>5 nodes, <20% changed, >70% of workflow) as tunable constants
 - **Path enumeration limits** → resolved in [request-interpretation.md](spec/request-interpretation.md): initial cap at 20 candidate paths (tunable)
 - **Execution polling strategy** → resolved in [PLAN.md](spec/PLAN.md): exponential backoff 1s→2s→4s→8s→15s, 5-minute timeout (tunable constants)

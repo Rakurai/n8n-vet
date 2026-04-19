@@ -11,7 +11,7 @@ Implement the trust and change subsystem: content hashing for deterministic node
 
 **Language/Version**: TypeScript 5.7, Node.js 20+ (ESM, strict mode)
 **Primary Dependencies**: `json-stable-stringify` (new, for canonical JSON serialization), `zod` (existing, for persistence schema validation), Node.js `crypto` (built-in, for SHA-256)
-**Storage**: Local JSON file at `.n8n-check/trust-state.json` (configurable via `N8N_CHECK_DATA_DIR`)
+**Storage**: Local JSON file at `.n8n-check/trust-state.json` (configurable via `N8N_VET_DATA_DIR`)
 **Testing**: vitest 3.1, graph fixtures (no n8n instance required)
 **Target Platform**: Node.js library (consumed by downstream subsystems: guardrails, orchestrator, MCP/CLI)
 **Project Type**: Library subsystem within the `n8n-check` package

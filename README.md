@@ -1,15 +1,68 @@
-# n8n-check
+# n8n-vet
 
-Guardrailed validation control for agent-built n8n workflows.
+Stop re-running the whole workflow. Vet what changed.
 
-**Install this, and your agent stops wasting hours inventing sloppy validation loops for the workflow graph it just built.**
+---
 
-## What is this?
+## The problem
 
-A validation control layer for agent-driven n8n workflow development. It keeps validation **local, bounded, diagnostic, and cheap** — so agents spend time fixing the graph, not thrashing on sloppy test loops.
+Agents building n8n workflows waste enormous time on validation. They re-run entire workflows after single-node changes. They invent ad hoc tests that check nothing new. They chase failures in regions they didn't touch. The validation loop itself becomes the bottleneck — not the code.
 
-See [docs/vision.md](docs/vision.md) for the full project vision.
+n8n-vet fixes this by making validation targeted, trust-aware, and cheap by default.
 
-## Status
+## What it does
 
-Early stage — scoping stack and architecture.
+n8n-vet is a validation control tool for agent-built n8n workflows. It exposes an MCP server that agents call during development. Given a workflow file and a change, it:
+
+- **Targets the change, not the workflow.** Computes the smallest useful slice around what changed, selects a path through it, and validates that — not the whole graph.
+- **Tracks trust across edits.** Nodes validated in prior runs stay trusted until they change. Previously validated, unchanged regions become trusted boundaries instead of repeated work.
+- **Runs static analysis before touching n8n.** Expression tracing, data-loss detection, and schema checks run locally first. Execution against the n8n instance is reserved for cases where runtime evidence is actually needed.
+- **Returns structured diagnostics, not transcripts.** Compact JSON with classified errors, node annotations, and guardrail explanations. Optimized for agent token budgets, not human scrolling.
+- **Prevents low-value work.** Guardrails warn, narrow, redirect, or refuse requests that would waste time — identical reruns, overly broad targets, execution when static suffices.
+
+## How it works
+
+The validation pipeline:
+
+1. Parse the workflow (TypeScript or JSON via n8n-as-code)
+2. Build a traversable graph with node classification and expression references
+3. Load trust state — what was validated before, what changed since
+4. Compute the validation target — changed nodes + forward propagation
+5. Consult guardrails — should this proceed, narrow, redirect, or refuse?
+6. Run static analysis (always) and execution (only when warranted)
+7. Synthesize a diagnostic summary
+8. Update trust for next time
+
+For the engineering details: [Strategy](docs/STRATEGY.md) covers the target-selection, prioritization, and rerun-suppression approaches (including RTS/TIA-style targeting and DeFlaker-style rerun suppression) and their evidence basis. [Design specs](docs/spec/INDEX.md) cover the type contracts and subsystem behavior.
+
+## For agents
+
+n8n-vet exposes three MCP tools:
+
+- **`validate`** — the primary tool. Accepts a workflow path and optional target, resolves scope, applies guardrails, runs validation, returns a diagnostic summary.
+- **`trust_status`** — inspect what's trusted, what changed, what needs validation.
+- **`explain`** — dry-run guardrail evaluation. Understand what `validate` would do before calling it.
+
+Default behavior when the agent calls `validate` with no target: validate whatever changed since the last successful run, using static analysis. The cheapest useful default.
+
+## Debug CLI
+
+A secondary CLI exists for local debugging and development:
+
+```
+n8n-vet validate workflow.ts              # static analysis on changes
+n8n-vet validate workflow.ts --layer both # static + execution
+n8n-vet trust workflow.ts                 # inspect trust state
+n8n-vet explain workflow.ts               # preview guardrail decision
+n8n-vet validate workflow.ts --json       # raw JSON (same as MCP output)
+```
+
+## Built on
+
+- [n8n-as-code](https://github.com/n8n-as-code) — workflow parsing, node type schemas, local-first workflow development
+- TypeScript, strict mode, ESM
+- MCP server via `@modelcontextprotocol/sdk`
+
+## License
+
+MIT

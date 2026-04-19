@@ -198,7 +198,7 @@ Pin data mocks the outputs of nodes that should not execute during a bounded or 
 - `exclusive` mode: execute up to but not the destination node (validate the node's inputs)
 - Default mode: `inclusive`
 
-**Push coordination**: n8n-check does NOT auto-push workflows to n8n. Pushing is the agent's responsibility via n8nac. If the workflow does not exist in n8n or is stale (local version differs from remote), report as a precondition failure with an actionable message advising the agent to push. Do not silently push.
+**Push coordination**: n8n-vet does NOT auto-push workflows to n8n. Pushing is the agent's responsibility via n8nac. If the workflow does not exist in n8n or is stale (local version differs from remote), report as a precondition failure with an actionable message advising the agent to push. Do not silently push.
 
 **Response**: returns `{ executionId: string }`. Results must be retrieved separately via polling.
 
@@ -317,7 +317,7 @@ Missing credentials raise a typed configuration error with a message identifying
 
 1. **No auto-push.** Report stale/missing workflow as precondition failure. Pushing is the agent's responsibility via n8nac.
 2. **Execution result caching.** Yes — cached alongside trust state so subsequent validations of unchanged nodes can skip re-execution.
-3. **Concurrent execution.** Serialize requests. One execution at a time per n8n-check session. No parallel execution support in this phase.
+3. **Concurrent execution.** Serialize requests. One execution at a time per n8n-vet session. No parallel execution support in this phase.
 4. **REST API stability.** v1 API with no deprecation markers observed. Monitor for breaking changes in n8n releases.
 5. **MCP and REST are independent surfaces.** Not primary/fallback. Each provides distinct operations. MCP unavailability does not affect REST-based bounded execution.
 6. **No raw output extraction.** Per-node result extraction captures status, timing, errors, source lineage, and hints. Raw `INodeExecutionData[]` output is excluded — it is large and not needed for diagnostic synthesis.

@@ -1,6 +1,6 @@
 # n8n-as-code Capabilities Reference
 
-> Research document for the n8n-check project. Catalogs all n8n-as-code (n8nac) functionality relevant to workflow validation, testing, execution inspection, and development workflow management. Source: n8n-as-code repository at /Users/QTE2333/repos/n8n-as-code.
+> Research document for the n8n-vet project. Catalogs all n8n-as-code (n8nac) functionality relevant to workflow validation, testing, execution inspection, and development workflow management. Source: n8n-as-code repository at /Users/QTE2333/repos/n8n-as-code.
 
 ---
 
@@ -157,7 +157,7 @@ n8nac convert-batch ./src --format typescript --force    # Batch conversion
 
 Auto-detection: `.json` → JSON, `.workflow.ts` → TypeScript.
 
-### Relevance to n8n-check
+### Relevance to n8n-vet
 
 The TypeScript DSL provides:
 - A parseable, diffable representation of workflows
@@ -304,7 +304,7 @@ interface ITestPlan {
 
 **Exit codes:** 0 = testable, 1 = not testable.
 
-### Relevance to n8n-check
+### Relevance to n8n-vet
 
 These commands provide the foundation for automated validation:
 - `verify` / `skills validate` cover structural correctness (the "static lint" layer)
@@ -462,7 +462,7 @@ Search bundled documentation pages.
 }
 ```
 
-### Relevance to n8n-check
+### Relevance to n8n-vet
 
 The n8nac MCP server provides:
 - **Offline schema validation** without API calls — useful for static analysis
@@ -504,7 +504,7 @@ n8nac workflow credential-required <workflowId> [--json]
 
 Returns list of required credentials and whether they exist. Exit 0 = all present, 1 = any missing.
 
-**Relevance to n8n-check:** Credential checking is a pre-validation step. If a workflow requires credentials that don't exist, execution-backed validation will fail for reasons unrelated to the workflow logic.
+**Relevance to n8n-vet:** Credential checking is a pre-validation step. If a workflow requires credentials that don't exist, execution-backed validation will fail for reasons unrelated to the workflow logic.
 
 ---
 
@@ -534,7 +534,7 @@ The skills package includes a bundled `n8n-nodes-technical.json` that provides:
 
 Custom node definitions can be added via `n8nac-custom-nodes.json`.
 
-### Relevance to n8n-check
+### Relevance to n8n-vet
 
 Node schemas are essential for:
 - Understanding what parameters each node expects
@@ -577,14 +577,14 @@ Uses chokidar v5.0.0 for cross-platform file watching.
 - Whitespace/formatting (TypeScript)
 - Metadata fields (projectId, timestamps)
 
-### Relevance to n8n-check
+### Relevance to n8n-vet
 
 Change detection provides the foundation for:
 - Knowing which workflows have been modified since last validation
 - Identifying the scope of changes (which nodes, connections, or expressions were altered)
 - Driving the "bounded batching" principle — validate what changed, not everything
 
-**Gap:** Current change detection is workflow-level, not node-level. For n8n-check's slice-based validation, finer-grained change tracking (which specific nodes/connections changed) would be needed.
+**Gap:** Current change detection is workflow-level, not node-level. For n8n-vet's slice-based validation, finer-grained change tracking (which specific nodes/connections changed) would be needed.
 
 ---
 
@@ -643,9 +643,9 @@ n8nac supports multiple n8n instances with per-instance project selection, verif
 
 ---
 
-## 11. Capability Summary for n8n-check
+## 11. Capability Summary for n8n-vet
 
-### What n8nac provides that n8n-check can build on
+### What n8nac provides that n8n-vet can build on
 
 | Capability | Command/Feature | Relevance |
 |---|---|---|
@@ -660,7 +660,7 @@ n8nac supports multiple n8n instances with per-instance project selection, verif
 | Credential availability check | `workflow credential-required` | Pre-validation gating |
 | Sync with conflict detection | push/pull/resolve | Controlled deployment for testing |
 
-### What n8nac does NOT provide (gaps for n8n-check)
+### What n8nac does NOT provide (gaps for n8n-vet)
 
 | Gap | Description |
 |---|---|
@@ -675,9 +675,9 @@ n8nac supports multiple n8n instances with per-instance project selection, verif
 | Pin data in TypeScript DSL | Planned but not implemented |
 | Binary data in fixtures | Not supported by underlying n8n pin data system |
 
-### Integration points for n8n-check
+### Integration points for n8n-vet
 
-n8n-check should likely integrate with n8nac rather than replace it:
+n8n-vet should likely integrate with n8nac rather than replace it:
 
 1. **Use n8nac's transformer** for parsing workflow TypeScript into an AST for static analysis
 2. **Use n8nac's node schemas** for understanding expected node parameters and output shapes

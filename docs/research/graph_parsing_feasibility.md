@@ -2,7 +2,7 @@
 
 ## Summary
 
-n8n-check needs to parse n8n workflow definitions and traverse the resulting graph to identify slices, paths, and trusted boundaries. This research examines three sources of graph-parsing capability: the n8nac transformer package, the n8n-workflow package, and raw workflow JSON. The recommendation is **Approach B: n8nac transformer for TS-to-JSON + own lightweight graph walker**, with the JSON type definitions borrowed from n8nac.
+n8n-vet needs to parse n8n workflow definitions and traverse the resulting graph to identify slices, paths, and trusted boundaries. This research examines three sources of graph-parsing capability: the n8nac transformer package, the n8n-workflow package, and raw workflow JSON. The recommendation is **Approach B: n8nac transformer for TS-to-JSON + own lightweight graph walker**, with the JSON type definitions borrowed from n8nac.
 
 ---
 
@@ -55,7 +55,7 @@ Exported from `src/index.ts`:
 | `WorkflowAST`, `NodeAST`, `ConnectionAST` | Types | Intermediate representation |
 | `N8nWorkflow`, `N8nNode`, `N8nConnections` | Types | n8n JSON schema types |
 | `ValidationResult`, `ValidationError` | Types | Validation output types |
-| `workflow`, `node`, `links` | Decorators | For authoring workflow .ts files (not relevant for n8n-check) |
+| `workflow`, `node`, `links` | Decorators | For authoring workflow .ts files (not relevant for n8n-vet) |
 
 ### Stability Assessment
 
@@ -64,9 +64,9 @@ Exported from `src/index.ts`:
 - Tests exist in `/packages/transformer/tests/` covering integration, JSON-to-TS, TS-to-JSON, AI connections, CJK support, and AST extraction. This indicates an actively maintained surface.
 - **Risk:** ts-morph is a heavy dependency (~20MB installed). It is only needed for the TS-to-AST direction, not for JSON parsing.
 
-### What n8n-check Needs From It
+### What n8n-vet Needs From It
 
-n8n-check's source of truth is n8nac TypeScript files, so:
+n8n-vet's source of truth is n8nac TypeScript files, so:
 
 1. **`TypeScriptParser`** — to convert `.ts` workflow files into `WorkflowAST`
 2. **`WorkflowBuilder`** — to convert `WorkflowAST` into `N8nWorkflow` JSON (needed if sending to n8n API for execution)
@@ -213,7 +213,7 @@ interface IWorkflowBase {
 }
 ```
 
-### Could n8n-check Parse JSON Directly?
+### Could n8n-vet Parse JSON Directly?
 
 Yes. The JSON format is straightforward:
 - `nodes` is a flat array of `INode` objects
@@ -293,7 +293,7 @@ interface ConnectionAST {
 Building an adjacency list from this is trivial:
 
 ```typescript
-// Pseudocode for the lightweight graph n8n-check would build
+// Pseudocode for the lightweight graph n8n-vet would build
 const forward = new Map<string, ConnectionAST[]>();  // node -> outgoing edges
 const backward = new Map<string, ConnectionAST[]>(); // node -> incoming edges
 for (const conn of ast.connections) {
@@ -304,7 +304,7 @@ for (const conn of ast.connections) {
 
 This is dramatically simpler than parsing n8n's `IConnections` format, which requires triple-nested iteration (see `mapConnectionsByDestination`).
 
-### What graph operations n8n-check actually needs
+### What graph operations n8n-vet actually needs
 
 Based on the project concepts (slices, paths, trusted boundaries):
 
@@ -319,7 +319,7 @@ All of these are standard graph algorithms operating on the flat `ConnectionAST[
 
 ### ts-morph weight consideration
 
-ts-morph is heavy (~20MB installed) but is unavoidable if n8n-check needs to read `.ts` workflow files, which it does (n8nac TypeScript files are the source of truth). The cost is already paid by depending on `@n8n-as-code/transformer`. If a JSON-only code path is also needed (e.g., for direct API workflow JSON), the `JsonToAstParser` from n8nac handles that without ts-morph.
+ts-morph is heavy (~20MB installed) but is unavoidable if n8n-vet needs to read `.ts` workflow files, which it does (n8nac TypeScript files are the source of truth). The cost is already paid by depending on `@n8n-as-code/transformer`. If a JSON-only code path is also needed (e.g., for direct API workflow JSON), the `JsonToAstParser` from n8nac handles that without ts-morph.
 
 ---
 
@@ -346,7 +346,7 @@ Concrete dependency plan:
 - n8nac's `WorkflowAST` is a cleaner graph representation than n8n's `IConnections`. Working directly with it avoids an unnecessary format conversion.
 - n8n-workflow's graph utilities are pure functions over `IConnections` dicts (see `src/common/`), but importing even just the types pulls in the full package with its 20 runtime dependencies and workspace coupling.
 - The `DirectedGraph` in n8n-core is well-designed but internal, and its `findSubgraph`/`findStartNodes` are oriented toward partial execution concerns (pin data, run data, dirty detection) rather than static validation.
-- The total graph code needed is small and benefits from being purpose-built for n8n-check's specific operations (slice computation, path enumeration, boundary detection) rather than adapted from n8n's execution-oriented utilities.
+- The total graph code needed is small and benefits from being purpose-built for n8n-vet's specific operations (slice computation, path enumeration, boundary detection) rather than adapted from n8n's execution-oriented utilities.
 
 ### Verified (spike completed 2026-04-18)
 

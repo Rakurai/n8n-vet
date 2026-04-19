@@ -5,7 +5,7 @@ Updated: 2026-04-18
 
 ## Purpose
 
-This document assesses three feasibility questions for n8n-check's diagnostic output layer:
+This document assesses three feasibility questions for n8n-vet's diagnostic output layer:
 
 1. **Minimum useful summary shape** -- what is the smallest structured result that gives an agent enough info to act?
 2. **Path observation fidelity** -- can we reconstruct which nodes executed and which branches were taken?
@@ -87,7 +87,7 @@ n8nac's `ITestResult` is a webhook-level result (did the HTTP call succeed?) -- 
 - `runtime-state` -- webhook not armed, workflow not active (not a code bug)
 - `wiring-error` -- bad expression, wrong field name (agent should fix)
 
-This classification is valuable but is done heuristically from HTTP response codes and error message string matching. n8n-check can do better by inspecting actual execution data via the API.
+This classification is valuable but is done heuristically from HTTP response codes and error message string matching. n8n-vet can do better by inspecting actual execution data via the API.
 
 The `IExecutionDetails` type (from `n8nac/packages/cli/src/core/types.ts` line 183) shows what comes back from the execution API:
 ```typescript
@@ -104,7 +104,7 @@ The `data` field is the raw `IRunExecutionData` and is available when `includeDa
 ### 1.4 Proposed minimum diagnostic summary schema
 
 ```typescript
-/** Top-level diagnostic summary returned by n8n-check after validation. */
+/** Top-level diagnostic summary returned by n8n-vet after validation. */
 interface DiagnosticSummary {
   /** Overall execution outcome. */
   status: 'pass' | 'fail' | 'error' | 'skipped';
@@ -174,7 +174,7 @@ interface DiagnosticError {
   message: string;
   /** More detailed description (when available). */
   description: string | null;
-  /** n8n-check classification for agent decision-making. */
+  /** n8n-vet classification for agent decision-making. */
   classification: ErrorClassification;
   /** HTTP status code (for API errors). */
   httpCode: string | null;
@@ -184,7 +184,7 @@ interface DiagnosticError {
   context: Record<string, unknown>;
 }
 
-/** How n8n-check classifies errors for agent action routing. */
+/** How n8n-vet classifies errors for agent action routing. */
 type ErrorClassification =
   /** Workflow wiring problem -- agent should fix and retry. */
   | 'wiring'
@@ -247,7 +247,7 @@ interface ISourceData {
 
 ### 2.3 Where path reporting becomes ambiguous
 
-**Parallel branches**: When a workflow forks (e.g., a node has two downstream nodes that both execute), the execution order from `executionIndex` is reliable but the "path" is no longer linear -- it is a DAG. Both branches will appear in `runData` with distinct `executionIndex` values. n8n-check must handle this by representing the path as a directed graph segment, not a simple list.
+**Parallel branches**: When a workflow forks (e.g., a node has two downstream nodes that both execute), the execution order from `executionIndex` is reliable but the "path" is no longer linear -- it is a DAG. Both branches will appear in `runData` with distinct `executionIndex` values. n8n-vet must handle this by representing the path as a directed graph segment, not a simple list.
 
 **Merge nodes**: When parallel branches converge at a Merge node, the Merge node's `source` array will contain multiple entries (one per input). The `previousNodeOutput` on each tells us which branch fed in. This is unambiguous.
 
@@ -266,7 +266,7 @@ interface ISourceData {
 | Loops / multi-run | **Medium** | Multiple `ITaskData` entries per node; manageable |
 | Sub-workflows | **Low** | Requires separate execution fetch; cross-boundary path is fragmented |
 
-For n8n-check's primary use case (validating a bounded workflow slice), linear and branching paths dominate. The fidelity is sufficient.
+For n8n-vet's primary use case (validating a bounded workflow slice), linear and branching paths dominate. The fidelity is sufficient.
 
 ---
 
@@ -543,13 +543,13 @@ function classifyError(error: ExecutionError): ErrorClassification {
 
 2. **The error hierarchy is well-structured for classification.** Error class names, httpCode, context fields, and ExpressionError subtypes give us enough signal to route agent actions with high confidence.
 
-3. **n8nac's error classification (config-gap/wiring-error/runtime-state) is a proven pattern** that n8n-check should extend, not replace. Our classification adds finer granularity (expression vs. credentials vs. external-service) while maintaining the same action-oriented philosophy.
+3. **n8nac's error classification (config-gap/wiring-error/runtime-state) is a proven pattern** that n8n-vet should extend, not replace. Our classification adds finer granularity (expression vs. credentials vs. external-service) while maintaining the same action-oriented philosophy.
 
 4. **The execution API provides full data.** The `GET /api/v1/executions/{id}?includeData=true` endpoint returns the complete `IRunExecutionData` including per-node results. n8nac already uses this path.
 
 ### Risks and gaps
 
-1. **Execution data may be redacted.** When `redactionInfo.isRedacted === true`, error messages and node output are stripped. The summary degrades to type + httpCode only. n8n-check should detect this and warn the agent that diagnostic quality is reduced.
+1. **Execution data may be redacted.** When `redactionInfo.isRedacted === true`, error messages and node output are stripped. The summary degrades to type + httpCode only. n8n-vet should detect this and warn the agent that diagnostic quality is reduced.
 
 2. **Parallel branches produce non-linear paths.** The proposed `executedPath: PathNode[]` is a simplification. For workflows with parallel branches, we should either (a) flatten to execution order (losing branch structure) or (b) add a `branches` field. Recommendation: start with flat execution order; add branch awareness in a later iteration.
 

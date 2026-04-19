@@ -1,6 +1,6 @@
 # Integration and Failure Feasibility Research
 
-Research into dependency robustness, API/MCP stability, authentication models, error taxonomy, and timeout/scale behavior for n8n-check.
+Research into dependency robustness, API/MCP stability, authentication models, error taxonomy, and timeout/scale behavior for n8n-vet.
 
 ---
 
@@ -31,7 +31,7 @@ Exports from `dist/index.js`:
 
 Dependencies are minimal and stable: `ts-morph`, `prettier`, `uuid`, `reflect-metadata`. No peer dependencies. No n8n runtime dependencies.
 
-**Assessment:** Clean library surface. Safe to depend on. The bidirectional transform pipeline (JSON to TS and back) is the core value for n8n-check static analysis.
+**Assessment:** Clean library surface. Safe to depend on. The bidirectional transform pipeline (JSON to TS and back) is the core value for n8n-vet static analysis.
 
 **@n8n-as-code/skills (HIGH confidence)**
 
@@ -46,7 +46,7 @@ Exports from `dist/index.js`:
 
 Dependencies include `@n8n-as-code/transformer`, `@modelcontextprotocol/sdk`, `zod`, `flexsearch`, `chalk`, `commander`. No peer dependencies.
 
-**Assessment:** The two critical exports for n8n-check are `WorkflowValidator` and `NodeSchemaProvider`. Both are well-structured classes with clean interfaces. `WorkflowValidator` already implements:
+**Assessment:** The two critical exports for n8n-vet are `WorkflowValidator` and `NodeSchemaProvider`. Both are well-structured classes with clean interfaces. `WorkflowValidator` already implements:
 - Structure validation (nodes array, connections object)
 - Node type existence checks (via schema index)
 - TypeVersion validation against known versions
@@ -57,7 +57,7 @@ Dependencies include `@n8n-as-code/transformer`, `@modelcontextprotocol/sdk`, `z
 - Community node detection (warns instead of errors)
 - Expression skipping (values containing `{{` are not statically validated)
 
-This is directly usable as a validation primitive. n8n-check does not need to reimplement this.
+This is directly usable as a validation primitive. n8n-vet does not need to reimplement this.
 
 **n8nac CLI library surface (MODERATE confidence)**
 
@@ -66,13 +66,13 @@ The CLI package exports a `lib.ts` that re-exports:
 - All types from `ILocalConfig`, `IInstanceProfile`, `IWorkspaceConfig`, etc.
 - Core services: `N8nApiClient`, `SyncManager`, `SyncEngine`, `WorkflowSanitizer`, etc.
 
-**Assessment:** The `ConfigService` is the key export for config reuse. The `N8nApiClient` wraps the n8n REST API and is usable but CLI-oriented (console output, spinner integration). For n8n-check, importing `ConfigService` to discover host/apiKey/project is safe. Using `N8nApiClient` directly is possible but carries more coupling risk.
+**Assessment:** The `ConfigService` is the key export for config reuse. The `N8nApiClient` wraps the n8n REST API and is usable but CLI-oriented (console output, spinner integration). For n8n-vet, importing `ConfigService` to discover host/apiKey/project is safe. Using `N8nApiClient` directly is possible but carries more coupling risk.
 
 **@n8n-as-code/mcp (LOW confidence for import)**
 
 The MCP package wraps all operations via `child_process.spawn` to the CLI entry point. Its `N8nAsCodeMcpService` class shells out for every operation (validate, push, pull, test, etc.).
 
-**Assessment:** Not suitable for programmatic import by n8n-check. The spawn-based architecture means every call has process overhead and stdout parsing. Use the underlying libraries directly instead.
+**Assessment:** Not suitable for programmatic import by n8n-vet. The spawn-based architecture means every call has process overhead and stdout parsing. Use the underlying libraries directly instead.
 
 ### Internal APIs to Avoid
 
@@ -87,7 +87,7 @@ The MCP package wraps all operations via `child_process.spawn` to the CLI entry 
 |------|----------|------------|
 | Transformer API breaks | Low | Version pinning; API is stable (1.1.0), types are well-defined |
 | Skills schema index format changes | Medium | The `n8n-nodes-technical.json` asset is rebuilt from n8n source; format could change on n8n version bumps |
-| Skills prebuild step required | Medium | Skills package has a complex prebuild chain (8 scripts). n8n-check must use published dist, not build from source |
+| Skills prebuild step required | Medium | Skills package has a complex prebuild chain (8 scripts). n8n-vet must use published dist, not build from source |
 | ConfigService format migration | Low | Config format is at version 2, with legacy migration built in |
 | Zod version mismatch | Low | Both skills and CLI use zod ^3.22; align with same range |
 
@@ -208,7 +208,7 @@ n8nac-config.json
 
 API keys are stored separately in a global `conf` store (`~/.config/n8nac/credentials.json`), keyed by both host URL and instance ID. The `ConfigService.getApiKey(host, instanceId)` method resolves keys with instance-scoped keys taking priority.
 
-### What n8n-check Can Reuse
+### What n8n-vet Can Reuse
 
 1. **Host + API key:** Import `ConfigService` from `n8nac`, call `getActiveInstance()` to get host, then `getApiKeyForActiveInstance()` for the API key. This requires the working directory to contain `n8nac-config.json`.
 
@@ -229,7 +229,7 @@ API keys are stored separately in a global `conf` store (`~/.config/n8nac/creden
 | Verification expired | n8n user deleted or permissions changed | `verification.status === 'failed'` | API calls may fail with 403 |
 | Global credentials file permissions | Credentials stored at 0o600, but multi-user systems | File read fails | No API key resolution |
 | n8nac-config.json locked/corrupted | Concurrent writes, crash during save | JSON parse error | Config service throws |
-| Workspace directory mismatch | n8n-check invoked from different cwd than n8nac | No config file found | Silent failure — falls back to empty config |
+| Workspace directory mismatch | n8n-vet invoked from different cwd than n8nac | No config file found | Silent failure — falls back to empty config |
 
 ### Config Discovery Recommendation
 
@@ -276,9 +276,9 @@ BaseError
               └── SystemShutdownExecutionCancelledError
 ```
 
-### Classification for n8n-check
+### Classification for n8n-vet
 
-n8n-check needs to distinguish three categories:
+n8n-vet needs to distinguish three categories:
 
 **Category 1: Workflow Logic Errors (fixable by editing workflow code)**
 - `ExpressionError` and all subtypes — bad expressions in node parameters
@@ -307,16 +307,16 @@ n8n-check needs to distinguish three categories:
 
 The n8nac `test` command already classifies test results using `TestErrorClass`:
 
-| Class | Meaning | n8n-check Action |
+| Class | Meaning | n8n-vet Action |
 |-------|---------|-----------------|
 | `null` | Not HTTP-testable (schedule trigger, unknown) | Report as untestable, not an error |
 | `'config-gap'` | Missing credentials, LLM model, env vars | Report as environment issue, exit 0 |
 | `'runtime-state'` | Test webhook not armed, production not published | Report as state issue, exit 0 |
 | `'wiring-error'` | Bad expression, wrong field, HTTP failure | Report as fixable error, exit 1 |
 
-**This classification is directly reusable.** n8n-check should import `ITestResult` and `TestErrorClass` from `n8nac` core types and extend the taxonomy for its own static analysis results.
+**This classification is directly reusable.** n8n-vet should import `ITestResult` and `TestErrorClass` from `n8nac` core types and extend the taxonomy for its own static analysis results.
 
-### Structured Error Output for n8n-check
+### Structured Error Output for n8n-vet
 
 ```typescript
 type ErrorCategory = 
@@ -400,7 +400,7 @@ interface DiagnosticError {
 | Pin data size | Large pin data objects increase MCP message size |
 | Concurrent executions | n8n has configurable concurrency limits |
 
-**Assessment:** The 5-minute MCP timeout is the primary constraint for execution-based validation. n8n-check should:
+**Assessment:** The 5-minute MCP timeout is the primary constraint for execution-based validation. n8n-vet should:
 1. Prefer static analysis (no timeout concern)
 2. For execution, prefer small slices (fewer nodes = faster)
 3. Set explicit timeouts on all REST calls (n8nac does not set them by default)
@@ -408,7 +408,7 @@ interface DiagnosticError {
 
 ### Data Size Considerations
 
-| Data | Typical Size | Large Case | Impact on n8n-check |
+| Data | Typical Size | Large Case | Impact on n8n-vet |
 |------|-------------|------------|---------------------|
 | Workflow JSON (100 nodes) | 50-200 KB | 1-5 MB (500+ nodes) | Manageable for static analysis |
 | Execution data (full, 50 nodes) | 500 KB - 5 MB | 50+ MB (many items) | Must selective-load, not bulk-fetch |
@@ -426,7 +426,7 @@ Execution polling:   3 minutes max (shorter than n8n MCP's 5min)
 Overall validation:  5 minutes max (inclusive of all steps)
 ```
 
-Set timeouts explicitly on every external call. Never inherit defaults. The n8nac API client does not set request-level timeouts (except for the 30s webhook test), which is a gap n8n-check should not replicate.
+Set timeouts explicitly on every external call. Never inherit defaults. The n8nac API client does not set request-level timeouts (except for the 30s webhook test), which is a gap n8n-vet should not replicate.
 
 ---
 
@@ -450,13 +450,13 @@ Set timeouts explicitly on every external call. Never inherit defaults. The n8na
 - Internal/private methods on skills and transformer classes
 - Hardcoding to n8n MCP as the sole execution backend
 
-### Critical Design Decisions for n8n-check
+### Critical Design Decisions for n8n-vet
 
 1. **Static-first architecture is validated.** The transformer and skills packages provide all primitives needed for local, offline validation with zero n8n connectivity.
 
 2. **Execution validation needs a strategy interface.** Multiple backends (REST API, MCP tools, n8nac test command) have different capabilities and availability. Abstraction is required.
 
-3. **Error classification is feasible.** Between n8n's error hierarchy, n8nac's TestErrorClass, and WorkflowValidator's structured output, n8n-check can reliably distinguish fixable workflow errors from environment/infra problems.
+3. **Error classification is feasible.** Between n8n's error hierarchy, n8nac's TestErrorClass, and WorkflowValidator's structured output, n8n-vet can reliably distinguish fixable workflow errors from environment/infra problems.
 
 4. **Timeout discipline is non-negotiable.** Every external call must have an explicit timeout. The n8nac codebase demonstrates what happens without them (only one timeout is set across the entire API client).
 

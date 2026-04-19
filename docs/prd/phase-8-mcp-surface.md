@@ -2,7 +2,7 @@
 
 ## Goal
 
-Implement the MCP server and CLI entry points that expose n8n-check to agents and developers. The MCP server registers three tools (`validate`, `trust_status`, `explain`) with JSON schema input validation and a uniform response envelope. The CLI provides mirrored commands with human-readable formatting by default and `--json` for machine output identical to MCP. Both layers are thin: they parse input, delegate to the library core, and format output. No validation logic, orchestration, or diagnostic construction lives here.
+Implement the MCP server and CLI entry points that expose n8n-vet to agents and developers. The MCP server registers three tools (`validate`, `trust_status`, `explain`) with JSON schema input validation and a uniform response envelope. The CLI provides mirrored commands with human-readable formatting by default and `--json` for machine output identical to MCP. Both layers are thin: they parse input, delegate to the library core, and format output. No validation logic, orchestration, or diagnostic construction lives here.
 
 ## Context Files
 
@@ -21,7 +21,7 @@ Implement the MCP server and CLI entry points that expose n8n-check to agents an
 - MCP server that registers three tools: `validate`, `trust_status`, `explain`
 - JSON schema input validation for each tool
 - Response envelope: `{ success: true, data }` or `{ success: false, error: McpError }`
-- CLI commands: `n8n-check validate <path>`, `n8n-check trust <path>`, `n8n-check explain <path>`
+- CLI commands: `n8n-vet validate <path>`, `n8n-vet trust <path>`, `n8n-vet explain <path>`
 - CLI options: `--target`, `--nodes`, `--layer`, `--force`, `--destination`, `--json`
 - Default application of omitted fields (target defaults to `{ kind: 'changed' }`, layer defaults to `'static'`, force defaults to `false`)
 - Human-readable formatted output in CLI (with color)
@@ -128,14 +128,14 @@ interface McpError {
 }
 ```
 
-Validation status `'fail'` is `success: true` at the tool level. The workflow failed validation, but the tool operated correctly. Tool-level `success: false` is reserved for n8n-check internal errors (file not found, parse failure, misconfiguration, unexpected exceptions).
+Validation status `'fail'` is `success: true` at the tool level. The workflow failed validation, but the tool operated correctly. Tool-level `success: false` is reserved for n8n-vet internal errors (file not found, parse failure, misconfiguration, unexpected exceptions).
 
 ### CLI
 
 **Commands:**
-- `n8n-check validate <path> [options]`
-- `n8n-check trust <path>`
-- `n8n-check explain <path> [options]`
+- `n8n-vet validate <path> [options]`
+- `n8n-vet trust <path>`
+- `n8n-vet explain <path> [options]`
 
 **Options:**
 - `--target <kind>` — `nodes`, `changed`, or `workflow`

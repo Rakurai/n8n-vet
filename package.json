@@ -1,5 +1,5 @@
 {
-  "name": "n8n-check",
+  "name": "n8n-vet",
   "version": "0.1.0",
   "description": "Guardrailed validation control for agent-built n8n workflows",
   "type": "module",
@@ -9,7 +9,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "n8n-check": "./dist/cli/index.js"
+    "n8n-vet": "./dist/cli/index.js"
   },
   "scripts": {
     "build": "tsc",
