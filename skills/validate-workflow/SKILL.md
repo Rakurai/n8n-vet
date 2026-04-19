@@ -1,5 +1,11 @@
 ---
-description: Validate n8n workflow changes. Use when the user edits an n8n-as-code workflow file and needs to check if the changes are correct, or when debugging workflow failures.
+name: validate-workflow
+description: Validate n8n workflow changes using n8n-vet tools. Use when the user edits an n8n-as-code workflow file (.ts or .json) and needs to check if the changes are correct, when debugging workflow execution failures, when checking data flow between nodes, or when testing workflow paths. Provides static analysis, execution-backed validation, trust tracking, and guardrailed scope control.
+license: MIT
+compatibility: Designed for Claude Code. Requires the n8n-vet MCP server (bundled by this plugin).
+metadata:
+  author: n8n-vet
+  version: "0.1"
 ---
 
 # n8n Workflow Validation

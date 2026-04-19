@@ -92,11 +92,14 @@ The manifest at `.claude-plugin/plugin.json` declares:
 - **name**: `n8n-vet`
 - **version**: read from `package.json` at build time. The manifest version and package version are the same value — no independent versioning.
 - **userConfig**: two fields:
-  - `n8n_host` — marked non-sensitive. Prompted on first use. Stored in Claude Code's plaintext config.
-  - `n8n_api_key` — marked sensitive. Prompted on first use. Stored in the system keychain via Claude Code's secure config mechanism. Never written to disk in plaintext.
+  - `n8n_host` — marked non-sensitive. Prompted on first use. Stored in Claude Code's plaintext config under `pluginConfigs[n8n-vet].options`.
+  - `n8n_api_key` — marked sensitive. Prompted on first use. Stored in the system keychain (~2KB total limit shared with OAuth tokens). Never written to disk in plaintext.
+  - Both values are available as `${user_config.n8n_host}` / `${user_config.n8n_api_key}` in MCP/hook configs, and exported as `CLAUDE_PLUGIN_OPTION_n8n_host` / `CLAUDE_PLUGIN_OPTION_n8n_api_key` env vars to subprocesses.
 - **Standard metadata**: description, author, repository URL, keywords for discoverability.
 
 No separate dev/prod configurations. One manifest serves all environments.
+
+**Plugin caching note:** Installed plugins are cached in `~/.claude/plugins/cache/`. The `${CLAUDE_PLUGIN_ROOT}` path changes on each plugin update. All mutable state (trust, node_modules) must go through `${CLAUDE_PLUGIN_DATA}`, which persists across updates. Files written to `${CLAUDE_PLUGIN_ROOT}` will be lost on update.
 
 ### 2. MCP server wiring
 
@@ -121,7 +124,25 @@ The hook runs at session start. No manual install step is required. If `npm inst
 
 ### 4. Validation skill
 
-The skill at `skills/validate-workflow/SKILL.md` is the primary mechanism for teaching the agent how to use n8n-vet. It encodes the product's validation philosophy in agent-consumable form:
+The skill at `skills/validate-workflow/SKILL.md` is the primary mechanism for teaching the agent how to use n8n-vet. It encodes the product's validation philosophy in agent-consumable form.
+
+**Skill format compliance (agentskills.io spec):**
+
+The SKILL.md frontmatter must include:
+- `name: validate-workflow` — required, must match the directory name, lowercase+hyphens only
+- `description` — required, up to 1024 chars, should include trigger keywords that help agents decide when to activate (e.g., "validate", "n8n", "workflow", "debug", "test", "data flow", "execution failure")
+- `license: MIT` — matches the project license
+- `compatibility: Designed for Claude Code` — declares the target environment
+- `metadata` — author and version for attribution
+
+The frontmatter `name` field controls the skill's invocation name within the plugin namespace: `/n8n-vet:validate-workflow`.
+
+**Progressive disclosure (agentskills.io recommendation):**
+- Frontmatter (~100 tokens): loaded at startup for all skills, used for routing
+- SKILL.md body (<5000 tokens recommended): loaded when the skill is activated
+- Additional reference files (if needed): loaded on demand
+
+Keep the main SKILL.md under 500 lines. If detailed reference material is needed (e.g., full DiagnosticSummary field reference), move it to a `references/` subdirectory.
 
 **What the skill teaches:**
 - When to call `validate` — after a meaningful batch of edits, not after every tiny change
@@ -154,9 +175,9 @@ Both modes use the same trust state format and file structure. The only differen
 
 `bin/n8n-vet` is a symlink or thin wrapper that invokes `dist/cli/index.js`.
 
-- When the plugin is active in Claude Code, the binary is available as a bare command in the Bash tool
-- When installed standalone (`npm install -g n8n-vet` or `npx n8n-vet`), the binary works identically
-- The CLI surface is secondary to the MCP surface — it exists for development and debugging, not agent consumption
+- When the plugin is active in Claude Code, files in `bin/` are added to the Bash tool's PATH. The binary is available as a bare command (`n8n-vet validate workflow.ts`) without path qualification.
+- When installed standalone (`npm install -g n8n-vet` or `npx n8n-vet`), the binary works identically.
+- The CLI surface is secondary to the MCP surface — it exists for development and debugging, not agent consumption.
 
 ## Acceptance Criteria
 
