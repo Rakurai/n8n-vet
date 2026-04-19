@@ -93,3 +93,37 @@ export { synthesize, SynthesisError } from './diagnostics/synthesize.js';
 
 // Diagnostics types
 export type { SynthesisInput } from './diagnostics/types.js';
+
+// Guardrails — public API
+export { evaluate } from './guardrails/evaluate.js';
+
+// Guardrails types
+export type { EvaluationInput } from './guardrails/types.js';
+
+// Execution — public API
+export { executeBounded, getExecutionData } from './execution/rest-client.js';
+export { executeSmoke } from './execution/mcp-client.js';
+export { constructPinData } from './execution/pin-data.js';
+export { detectCapabilities } from './execution/capabilities.js';
+
+// Execution types
+export type {
+  PinData,
+  PinDataResult,
+  ExecutionResult,
+  ExecutionData,
+  DetectedCapabilities,
+  ResolvedCredentials,
+} from './execution/types.js';
+
+// Orchestrator — public API
+export { interpret } from './orchestrator/interpret.js';
+
+// Orchestrator types
+export type {
+  ValidationRequest,
+  InterpretedRequest,
+  OrchestratorDeps,
+  WorkflowSnapshot,
+} from './orchestrator/types.js';
+export { ValidationRequestSchema, deriveWorkflowId } from './orchestrator/types.js';
