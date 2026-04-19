@@ -2,6 +2,6 @@
 
 import { main } from '../dist/cli/index.js';
 
-main().then((code) => {
+void main().then((code) => {
   process.exitCode = code;
 });

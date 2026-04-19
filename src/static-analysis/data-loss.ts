@@ -7,12 +7,11 @@
  * output shapes (Code nodes, unknown community nodes).
  */
 
-import type { NodeIdentity } from '../types/identity.js';
-import { nodeIdentity } from '../types/identity.js';
 import type { WorkflowGraph } from '../types/graph.js';
+import type { NodeIdentity } from '../types/identity.js';
+import type { NodeSchemaProvider } from './schemas.js';
 import type { ExpressionReference } from './types.js';
 import type { StaticFinding } from './types.js';
-import type { NodeSchemaProvider } from './schemas.js';
 
 /**
  * Detect data-loss risks and broken references for expressions within target nodes.
@@ -30,6 +29,9 @@ export function detectDataLoss(
 
   for (const ref of references) {
     if (!targetSet.has(ref.node)) continue;
+    // Skip references in disabled nodes
+    const node = graph.nodes.get(ref.node);
+    if (node?.disabled) continue;
 
     if (ref.referencedNode !== null) {
       handleExplicitReference(ref, graph, findings);
@@ -81,15 +83,15 @@ function handleImplicitReference(
   findings: StaticFinding[],
   schemaProvider?: NodeSchemaProvider,
 ): void {
-  walkBackward(ref.node, ref, graph, findings, new Set<string>(), schemaProvider);
+  walkBackward(ref.node, ref, graph, findings, new Set<NodeIdentity>(), schemaProvider);
 }
 
 function walkBackward(
-  currentNode: string,
+  currentNode: NodeIdentity,
   ref: ExpressionReference,
   graph: WorkflowGraph,
   findings: StaticFinding[],
-  visited: Set<string>,
+  visited: Set<NodeIdentity>,
   schemaProvider?: NodeSchemaProvider,
 ): void {
   if (visited.has(currentNode)) return;
@@ -115,7 +117,7 @@ function walkBackward(
           kind: 'opaque-boundary',
           message: `Upstream node "${pred.displayName}" has indeterminate output shape — cannot verify data availability`,
           context: {
-            opaqueNode: nodeIdentity(pred.name),
+            opaqueNode: pred.name,
           },
         });
         break;
@@ -125,15 +127,15 @@ function walkBackward(
           // Origin of data, not replacing someone else's output — no finding.
         } else {
           const severity = shouldDowngrade(pred.type, ref.fieldPath, schemaProvider)
-            ? 'warning' as const
-            : 'error' as const;
+            ? ('warning' as const)
+            : ('error' as const);
           findings.push({
             node: ref.node,
             severity,
             kind: 'data-loss',
             message: `$json reference may lose data — upstream node "${pred.displayName}" replaces item shape`,
             context: {
-              upstreamNode: nodeIdentity(pred.name),
+              upstreamNode: pred.name,
               fieldPath: ref.fieldPath ?? '',
               parameter: ref.parameter,
             },
@@ -175,14 +177,14 @@ function shouldDowngrade(
  * points (nodes with no incoming edges) without encountering any other
  * shape-replacing or shape-augmenting nodes.
  */
-function isFirstDataSource(nodeName: string, graph: WorkflowGraph): boolean {
-  return allPathsReachEntry(nodeName, graph, new Set<string>());
+function isFirstDataSource(nodeName: NodeIdentity, graph: WorkflowGraph): boolean {
+  return allPathsReachEntry(nodeName, graph, new Set<NodeIdentity>());
 }
 
 function allPathsReachEntry(
-  nodeName: string,
+  nodeName: NodeIdentity,
   graph: WorkflowGraph,
-  visited: Set<string>,
+  visited: Set<NodeIdentity>,
 ): boolean {
   if (visited.has(nodeName)) return true; // cycle → treat as reachable
   visited.add(nodeName);

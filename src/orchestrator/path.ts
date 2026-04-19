@@ -6,9 +6,9 @@
  * 20-candidate cap applied early via quick heuristic before full ranking.
  */
 
-import type { NodeIdentity } from '../types/identity.js';
 import type { WorkflowGraph } from '../types/graph.js';
-import type { SliceDefinition, PathDefinition, PathEdge } from '../types/slice.js';
+import type { NodeIdentity } from '../types/identity.js';
+import type { PathDefinition, PathEdge, SliceDefinition } from '../types/slice.js';
 import type { NodeChangeSet, TrustState } from '../types/trust.js';
 
 const CANDIDATE_CAP = 20;
@@ -50,7 +50,7 @@ export function selectPaths(
   const ranked = candidates
     .map((path) => ({
       path,
-      score: computeScore(path, changedNodes, untrustedBoundaries),
+      score: computeScore(path, changedNodes, untrustedBoundaries, graph),
     }))
     .sort((a, b) => compareScores(a.score, b.score));
 
@@ -60,9 +60,17 @@ export function selectPaths(
   const coveredBoundaries = new Set<string>();
 
   for (const { path, score } of ranked) {
+    // Count changed/untrusted for this path (for formatReason)
+    let pathChanged = 0;
+    let pathUntrusted = 0;
+    for (const n of path.nodes) {
+      if (changedNodes.has(n as string)) pathChanged++;
+      if (untrustedBoundaries.has(n as string)) pathUntrusted++;
+    }
+
     if (selected.length === 0) {
       // Always select the first (highest-ranked) path
-      path.selectionReason = formatReason(score);
+      path.selectionReason = formatReason(score, pathChanged, pathUntrusted);
       selected.push(path);
       for (const n of path.nodes) {
         if (changedNodes.has(n as string)) coveredChanged.add(n as string);
@@ -75,12 +83,13 @@ export function selectPaths(
     let newCoverage = 0;
     for (const n of path.nodes) {
       if (changedNodes.has(n as string) && !coveredChanged.has(n as string)) newCoverage++;
-      if (untrustedBoundaries.has(n as string) && !coveredBoundaries.has(n as string)) newCoverage++;
+      if (untrustedBoundaries.has(n as string) && !coveredBoundaries.has(n as string))
+        newCoverage++;
     }
 
     if (newCoverage === 0) continue;
 
-    path.selectionReason = `additional: ${formatReason(score)}`;
+    path.selectionReason = `additional: ${formatReason(score, pathChanged, pathUntrusted)}`;
     selected.push(path);
 
     for (const n of path.nodes) {
@@ -95,40 +104,28 @@ export function selectPaths(
 // ── Path enumeration (DFS) ────────────────────────────────────────
 
 interface PartialPath {
-  nodes: string[];
+  nodes: NodeIdentity[];
   edges: PathEdge[];
 }
 
-function enumeratePaths(
-  slice: SliceDefinition,
-  graph: WorkflowGraph,
-): PathDefinition[] {
-  const exitSet = new Set(slice.exitPoints.map(String));
-  const sliceSet = new Set([...slice.nodes].map(String));
+function enumeratePaths(slice: SliceDefinition, graph: WorkflowGraph): PathDefinition[] {
+  const exitSet = new Set(slice.exitPoints);
+  const sliceSet = slice.nodes;
   const results: PathDefinition[] = [];
 
   for (const entry of slice.entryPoints) {
-    const entryStr = entry as string;
-    dfs(
-      entryStr,
-      { nodes: [entryStr], edges: [] },
-      new Set([entryStr]),
-      exitSet,
-      sliceSet,
-      graph,
-      results,
-    );
+    dfs(entry, { nodes: [entry], edges: [] }, new Set([entry]), exitSet, sliceSet, graph, results);
   }
 
   return results;
 }
 
 function dfs(
-  current: string,
+  current: NodeIdentity,
   partial: PartialPath,
-  visited: Set<string>,
-  exitSet: Set<string>,
-  sliceSet: Set<string>,
+  visited: Set<NodeIdentity>,
+  exitSet: Set<NodeIdentity>,
+  sliceSet: Set<NodeIdentity>,
   graph: WorkflowGraph,
   results: PathDefinition[],
 ): void {
@@ -157,9 +154,9 @@ function dfs(
     if (visited.has(edge.to)) continue;
 
     const pathEdge: PathEdge = {
-      from: current as NodeIdentity,
+      from: current,
       fromOutput: edge.fromOutput,
-      to: edge.to as NodeIdentity,
+      to: edge.to,
       toInput: edge.toInput,
       isError: edge.isError,
     };
@@ -178,7 +175,7 @@ function dfs(
 
 function toPathDefinition(partial: PartialPath): PathDefinition {
   return {
-    nodes: [...partial.nodes] as NodeIdentity[],
+    nodes: [...partial.nodes],
     edges: [...partial.edges],
     usesErrorOutput: partial.edges.some((e) => e.isError),
     selectionReason: '',
@@ -200,60 +197,70 @@ function quickFilter(candidates: PathDefinition[]): PathDefinition[] {
     .slice(0, CANDIDATE_CAP);
 }
 
-// ── 4-tier scoring ────────────────────────────────────────────────
+// ── STRATEGY.md-aligned scoring ──────────────────────────────────
 
-interface PathScore {
-  /** Tier 1: true if all edges are non-error (lower index = better) */
-  allNonError: boolean;
-  /** Tier 2: true if all branching nodes use output 0 */
-  allOutputZero: boolean;
-  /** Tier 3: count of changed nodes covered (more = better) */
-  changedNodesCovered: number;
-  /** Tier 4: count of untrusted boundaries crossed (more = better) */
-  untrustedBoundariesCrossed: number;
-}
+/** Calibratable scoring weights per STRATEGY.md path ranking factors. */
+const WEIGHT_HIGH = 3;
+const WEIGHT_MEDIUM = 2;
+const WEIGHT_NEGATIVE = -1;
 
 function computeScore(
   path: PathDefinition,
   changedNodes: Set<string>,
   untrustedBoundaries: Set<string>,
-): PathScore {
-  const allNonError = !path.usesErrorOutput;
-  const allOutputZero = path.edges.every((e) => e.fromOutput === 0);
+  graph: WorkflowGraph,
+): number {
+  let score = 0;
 
-  let changedNodesCovered = 0;
   for (const node of path.nodes) {
-    if (changedNodes.has(node as string)) changedNodesCovered++;
+    const id = node as string;
+    const graphNode = graph.nodes.get(node);
+
+    // High weight: changed opaque/shape-replacing nodes
+    if (
+      changedNodes.has(id) &&
+      graphNode &&
+      (graphNode.classification === 'shape-opaque' ||
+        graphNode.classification === 'shape-replacing')
+    ) {
+      score += WEIGHT_HIGH;
+    }
+
+    // High weight: untrusted boundaries
+    if (untrustedBoundaries.has(id)) {
+      score += WEIGHT_HIGH;
+    }
+
+    // Medium weight: changed branching logic (nodes with multiple outgoing edges)
+    if (changedNodes.has(id)) {
+      const edges = graph.forward.get(node);
+      if (edges && edges.length > 1) {
+        score += WEIGHT_MEDIUM;
+      }
+    }
+
+    // Baseline: any changed node covered
+    if (changedNodes.has(id)) {
+      score += 1;
+    }
   }
 
-  let untrustedBoundariesCrossed = 0;
-  for (const node of path.nodes) {
-    if (untrustedBoundaries.has(node as string)) untrustedBoundariesCrossed++;
-  }
+  // Negative weight: estimated execution cost (path length proxy)
+  score += path.nodes.length * WEIGHT_NEGATIVE;
 
-  return { allNonError, allOutputZero, changedNodesCovered, untrustedBoundariesCrossed };
+  return score;
 }
 
 /** Compare two scores — negative means `a` is better (higher rank). */
-function compareScores(a: PathScore, b: PathScore): number {
-  // Tier 1: prefer all non-error
-  if (a.allNonError !== b.allNonError) return a.allNonError ? -1 : 1;
-  // Tier 2: prefer all output 0
-  if (a.allOutputZero !== b.allOutputZero) return a.allOutputZero ? -1 : 1;
-  // Tier 3: prefer more changed nodes (descending)
-  if (a.changedNodesCovered !== b.changedNodesCovered) {
-    return b.changedNodesCovered - a.changedNodesCovered;
-  }
-  // Tier 4: prefer more untrusted boundaries (descending)
-  return b.untrustedBoundariesCrossed - a.untrustedBoundariesCrossed;
+function compareScores(a: number, b: number): number {
+  return b - a;
 }
 
-function formatReason(score: PathScore): string {
+function formatReason(score: number, changedCount: number, untrustedCount: number): string {
   const parts: string[] = [];
-  if (score.allNonError) parts.push('non-error path');
-  else parts.push('uses error output');
-  if (score.changedNodesCovered > 0) parts.push(`covers ${score.changedNodesCovered} changed node(s)`);
-  if (score.untrustedBoundariesCrossed > 0) parts.push(`crosses ${score.untrustedBoundariesCrossed} untrusted boundary(ies)`);
+  parts.push(`score ${score}`);
+  if (changedCount > 0) parts.push(`covers ${changedCount} changed node(s)`);
+  if (untrustedCount > 0) parts.push(`crosses ${untrustedCount} untrusted boundary(ies)`);
   return parts.join(', ');
 }
 
@@ -267,10 +274,7 @@ function resolveChangedNodes(changeSet: NodeChangeSet | null): Set<string> {
   return nodes;
 }
 
-function resolveUntrustedBoundaries(
-  slice: SliceDefinition,
-  trustState: TrustState,
-): Set<string> {
+function resolveUntrustedBoundaries(slice: SliceDefinition, trustState: TrustState): Set<string> {
   const untrusted = new Set<string>();
   // Entry and exit points that are not trusted are untrusted boundaries
   for (const entry of slice.entryPoints) {

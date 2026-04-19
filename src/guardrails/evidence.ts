@@ -28,6 +28,11 @@ export function assembleEvidence(input: EvaluationInput): GuardrailEvidence {
       changedNodes.push(node);
     }
   }
+  for (const node of changeSet.removed) {
+    if (targetNodes.has(node)) {
+      changedNodes.push(node);
+    }
+  }
   for (const mod of changeSet.modified) {
     if (!targetNodes.has(mod.node)) continue;
     const isTrustPreserving = mod.changes.every((c) => TRUST_PRESERVING.has(c));

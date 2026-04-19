@@ -9,6 +9,7 @@
  */
 
 import type { WorkflowAST } from '@n8n-as-code/transformer';
+import type { NodeIdentity } from './identity.js';
 
 /**
  * Complete traversable representation of a parsed n8n workflow.
@@ -19,19 +20,19 @@ import type { WorkflowAST } from '@n8n-as-code/transformer';
  */
 export interface WorkflowGraph {
   /** All nodes in the workflow, keyed by property name (the stable graph key). */
-  nodes: Map<string, GraphNode>;
+  nodes: Map<NodeIdentity, GraphNode>;
 
   /** Forward adjacency: maps each source node name to its outgoing edges. */
-  forward: Map<string, Edge[]>;
+  forward: Map<NodeIdentity, Edge[]>;
 
   /** Backward adjacency: maps each destination node name to its incoming edges. */
-  backward: Map<string, Edge[]>;
+  backward: Map<NodeIdentity, Edge[]>;
 
   /**
    * Maps display names to property names, enabling expression resolution.
    * Built during graph construction from each node's displayName → name mapping.
    */
-  displayNameIndex: Map<string, string>;
+  displayNameIndex: Map<string, NodeIdentity>;
 
   /** Original AST produced by the n8nac transformer; preserved for provenance. */
   ast: WorkflowAST;
@@ -47,7 +48,7 @@ export interface WorkflowGraph {
  */
 export interface GraphNode {
   /** Property name — the stable identifier used as the graph key. */
-  name: string;
+  name: NodeIdentity;
 
   /** n8n display name, used in expression resolution (e.g. `$('Schedule Trigger')`). */
   displayName: string;
@@ -73,15 +74,6 @@ export interface GraphNode {
 
 /**
  * Describes how a node affects the shape of the items flowing through it.
- *
- * Used by static analysis to bound what needs re-validation when a node
- * changes, and to reason about which downstream nodes may be affected by a
- * shape change.
- *
- * - `shape-preserving` — passes items through without structural change
- * - `shape-augmenting` — adds fields to items without removing existing ones
- * - `shape-replacing` — produces items with a structure unrelated to the input
- * - `shape-opaque` — output shape cannot be statically determined
  */
 export type NodeClassification =
   | 'shape-preserving'
@@ -91,14 +83,10 @@ export type NodeClassification =
 
 /**
  * A directed connection between two nodes in the workflow graph.
- *
- * Output and input indices follow n8n's zero-based convention. Error outputs
- * are flagged separately so that slice computation can distinguish normal data
- * flow from error-handling branches.
  */
 export interface Edge {
   /** Source node name. */
-  from: string;
+  from: NodeIdentity;
 
   /** Source output index (zero-based). */
   fromOutput: number;
@@ -107,7 +95,7 @@ export interface Edge {
   isError: boolean;
 
   /** Destination node name. */
-  to: string;
+  to: NodeIdentity;
 
   /** Destination input index (zero-based). */
   toInput: number;

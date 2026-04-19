@@ -7,7 +7,6 @@
 export const SHAPE_PRESERVING_TYPES: ReadonlySet<string> = new Set([
   'n8n-nodes-base.if',
   'n8n-nodes-base.switch',
-  'n8n-nodes-base.merge',
   'n8n-nodes-base.noOp',
   'n8n-nodes-base.wait',
   'n8n-nodes-base.filter',
@@ -27,6 +26,9 @@ export const SHAPE_OPAQUE_TYPES: ReadonlySet<string> = new Set([
 
 /** The Set node type — requires special handling based on options.include. */
 export const SET_NODE_TYPE = 'n8n-nodes-base.set' as const;
+
+/** The Merge node type — requires mode-aware classification. */
+export const MERGE_NODE_TYPE = 'n8n-nodes-base.merge' as const;
 
 /** The HTTP Request node type. */
 export const HTTP_REQUEST_TYPE = 'n8n-nodes-base.httpRequest' as const;

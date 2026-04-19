@@ -52,6 +52,10 @@ export function checkSchemas(
       continue;
     }
 
+    // Skip references from or to disabled nodes
+    const refNode = graph.nodes.get(ref.node);
+    if (refNode?.disabled) continue;
+
     const graphNode = graph.nodes.get(ref.referencedNode);
     if (!graphNode) {
       continue;

@@ -7,6 +7,8 @@
 
 import type { AvailableCapabilities } from './diagnostic.js';
 import type { GuardrailDecision } from './guardrail.js';
+import type { NodeIdentity } from './identity.js';
+import type { ValidationLayer } from './target.js';
 
 // ── TrustStatusReport ────────────────────────────────────────────
 
@@ -16,20 +18,20 @@ export interface TrustStatusReport {
   totalNodes: number;
   trustedNodes: TrustedNodeInfo[];
   untrustedNodes: UntrustedNodeInfo[];
-  changedSinceLastValidation: string[];
+  changedSinceLastValidation: NodeIdentity[];
 }
 
 /** A node with an active trust record. */
 export interface TrustedNodeInfo {
-  name: string;
+  name: NodeIdentity;
   validatedAt: string;
-  validationLayer: string;
+  validationLayer: ValidationLayer;
   contentUnchanged: boolean;
 }
 
 /** A node without trust or with invalidated trust. */
 export interface UntrustedNodeInfo {
-  name: string;
+  name: NodeIdentity;
   reason: string;
 }
 
@@ -44,7 +46,7 @@ export interface GuardrailExplanation {
 
 /** How the agent's target would resolve. */
 export interface TargetResolutionInfo {
-  resolvedNodes: string[];
-  selectedPath: string[];
+  resolvedNodes: NodeIdentity[];
+  selectedPath: NodeIdentity[];
   automatic: boolean;
 }

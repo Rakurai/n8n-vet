@@ -234,39 +234,41 @@ describe('synthesize — execution-backed path (US2)', () => {
         message: 'Cannot read property',
         description: null,
         node: 'setFields',
-        expression: '={{ $json.missing }}',
-        parameter: 'value',
+        context: { expressionType: '={{ $json.missing }}', parameter: 'value' },
       },
       nodeResults: new Map([
         [
           nodeIdentity('trigger'),
-          {
-            executionIndex: 0,
-            status: 'success' as const,
-            executionTimeMs: 3,
-            error: null,
-            source: { previousNodeOutput: null },
-            hints: [],
-          },
+          [
+            {
+              executionIndex: 0,
+              status: 'success' as const,
+              executionTimeMs: 3,
+              error: null,
+              source: null,
+              hints: [],
+            },
+          ],
         ],
         [
           nodeIdentity('setFields'),
-          {
-            executionIndex: 1,
-            status: 'error' as const,
-            executionTimeMs: 5,
-            error: {
-              contextKind: 'expression' as const,
-              type: 'ExpressionError',
-              message: 'Cannot read property',
-              description: null,
-              node: 'setFields',
-              expression: '={{ $json.missing }}',
-              parameter: 'value',
+          [
+            {
+              executionIndex: 1,
+              status: 'error' as const,
+              executionTimeMs: 5,
+              error: {
+                contextKind: 'expression' as const,
+                type: 'ExpressionError',
+                message: 'Cannot read property',
+                description: null,
+                node: 'setFields',
+                context: { expressionType: '={{ $json.missing }}', parameter: 'value' },
+              },
+              source: { previousNode: 'trigger', previousNodeOutput: 0, previousNodeRun: 0 },
+              hints: [],
             },
-            source: { previousNodeOutput: 0 },
-            hints: [],
-          },
+          ],
         ],
       ]),
     };
@@ -358,38 +360,41 @@ describe('synthesize — full pipeline integration (T036)', () => {
         message: 'Service unavailable',
         description: 'HTTP 503',
         node: 'httpRequest',
-        httpCode: 503,
+        context: { httpCode: '503' },
       },
       nodeResults: new Map([
         [
           nodeIdentity('httpRequest'),
-          {
-            executionIndex: 0,
-            status: 'error',
-            executionTimeMs: 150,
-            error: {
-              contextKind: 'api',
-              type: 'NodeApiError',
-              message: 'Service unavailable',
-              description: 'HTTP 503',
-              node: 'httpRequest',
-              httpCode: 503,
+          [
+            {
+              executionIndex: 0,
+              status: 'error',
+              executionTimeMs: 150,
+              error: {
+                contextKind: 'api',
+                type: 'NodeApiError',
+                message: 'Service unavailable',
+                description: 'HTTP 503',
+                node: 'httpRequest',
+                context: { httpCode: '503' },
+              },
+              source: null,
+              hints: [{ message: 'Retry-After header present', severity: 'info' }],
             },
-            source: { previousNodeOutput: null },
-            hints: [{ message: 'Retry-After header present' }],
-          },
+          ],
         ],
         [
           nodeIdentity('setFields'),
-          {
-            executionIndex: 1,
-            status: 'success',
-            executionTimeMs: 5,
-            error: null,
-            source: { previousNodeOutput: 0 },
-            hints: [],
-            pinDataSource: 'agent' as const,
-          },
+          [
+            {
+              executionIndex: 1,
+              status: 'success',
+              executionTimeMs: 5,
+              error: null,
+              source: { previousNode: 'httpRequest', previousNodeOutput: 0, previousNodeRun: 0 },
+              hints: [],
+            },
+          ],
         ],
       ]),
     };
@@ -422,10 +427,10 @@ describe('synthesize — full pipeline integration (T036)', () => {
 
     // Annotations: one per node in target
     expect(result.nodeAnnotations).toHaveLength(3);
-    // httpRequest → validated (executed), setFields → mocked (pinDataSource), codeNode → skipped
+    // httpRequest → validated (executed), setFields → validated (executed), codeNode → skipped
     const byNode = new Map(result.nodeAnnotations.map((a) => [String(a.node), a]));
     expect(byNode.get('httpRequest')?.status).toBe('validated');
-    expect(byNode.get('setFields')?.status).toBe('mocked');
+    expect(byNode.get('setFields')?.status).toBe('validated');
     expect(byNode.get('codeNode')?.status).toBe('skipped');
 
     // Guardrails: all passed through

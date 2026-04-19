@@ -102,44 +102,40 @@ describe('resolveCredentials', () => {
 describe('TriggerExecutionResponseSchema', () => {
   it('parses valid trigger response', () => {
     const result = TriggerExecutionResponseSchema.parse({
-      data: { executionId: 'exec-123' },
+      executionId: 'exec-123',
     });
-    expect(result.data.executionId).toBe('exec-123');
+    expect(result.executionId).toBe('exec-123');
   });
 
   it('rejects missing executionId', () => {
-    expect(() => TriggerExecutionResponseSchema.parse({ data: {} })).toThrow();
+    expect(() => TriggerExecutionResponseSchema.parse({})).toThrow();
   });
 });
 
 describe('ExecutionStatusResponseSchema', () => {
   it('parses valid status response', () => {
     const result = ExecutionStatusResponseSchema.parse({
-      data: {
-        id: 'exec-123',
-        finished: true,
-        mode: 'manual',
-        status: 'success',
-        startedAt: '2026-01-01T00:00:00.000Z',
-        stoppedAt: '2026-01-01T00:00:05.000Z',
-      },
+      id: 'exec-123',
+      finished: true,
+      mode: 'manual',
+      status: 'success',
+      startedAt: '2026-01-01T00:00:00.000Z',
+      stoppedAt: '2026-01-01T00:00:05.000Z',
     });
-    expect(result.data.status).toBe('success');
-    expect(result.data.finished).toBe(true);
+    expect(result.status).toBe('success');
+    expect(result.finished).toBe(true);
   });
 
   it('accepts null stoppedAt for running executions', () => {
     const result = ExecutionStatusResponseSchema.parse({
-      data: {
-        id: 'exec-123',
-        finished: false,
-        mode: 'manual',
-        status: 'running',
-        startedAt: '2026-01-01T00:00:00.000Z',
-        stoppedAt: null,
-      },
+      id: 'exec-123',
+      finished: false,
+      mode: 'manual',
+      status: 'running',
+      startedAt: '2026-01-01T00:00:00.000Z',
+      stoppedAt: null,
     });
-    expect(result.data.stoppedAt).toBeNull();
+    expect(result.stoppedAt).toBeNull();
   });
 });
 
@@ -181,7 +177,7 @@ describe('executeBounded', () => {
 
   it('returns ExecutionResult with executionId, status running, partial true on 200', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response(JSON.stringify({ data: { executionId: 'exec-123' } }), { status: 200 }),
+      new Response(JSON.stringify({ executionId: 'exec-123' }), { status: 200 }),
     );
 
     const result = await executeBounded(workflowId, destinationNodeName, pinData, credentials);
@@ -193,7 +189,7 @@ describe('executeBounded', () => {
 
   it('sends correct URL, method, auth header, and body shape', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      new Response(JSON.stringify({ data: { executionId: 'exec-456' } }), { status: 200 }),
+      new Response(JSON.stringify({ executionId: 'exec-456' }), { status: 200 }),
     );
 
     await executeBounded(workflowId, destinationNodeName, pinData, credentials, 'exclusive');
@@ -254,7 +250,7 @@ describe('executeBounded', () => {
 
     // Resolve the first call so the lock is released cleanly.
     resolveFirst(
-      new Response(JSON.stringify({ data: { executionId: 'exec-789' } }), { status: 200 }),
+      new Response(JSON.stringify({ executionId: 'exec-789' }), { status: 200 }),
     );
     await firstCall;
   });
@@ -262,10 +258,10 @@ describe('executeBounded', () => {
   it('allows a second call after the first completes', async () => {
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ data: { executionId: 'exec-1' } }), { status: 200 }),
+        new Response(JSON.stringify({ executionId: 'exec-1' }), { status: 200 }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ data: { executionId: 'exec-2' } }), { status: 200 }),
+        new Response(JSON.stringify({ executionId: 'exec-2' }), { status: 200 }),
       );
 
     const first = await executeBounded(workflowId, destinationNodeName, pinData, credentials);

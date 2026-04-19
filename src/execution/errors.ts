@@ -65,8 +65,4 @@ export class ExecutionPreconditionError extends Error {
  */
 export class ExecutionConfigError extends Error {
   override readonly name = 'ExecutionConfigError' as const;
-
-  constructor(message: string) {
-    super(message);
-  }
 }

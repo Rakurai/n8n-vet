@@ -195,24 +195,21 @@ describe('getExecution', () => {
   });
 
   it('returns data when includeData is true and runData is present', async () => {
-    const executionWithData = {
-      ...baseExecution,
-      data: {
-        resultData: {
-          runData: {
-            httpNode: [
-              {
-                startTime: 1000,
-                executionTime: 50,
-                executionStatus: 'success',
-              },
-            ],
-          },
-          lastNodeExecuted: 'httpNode',
+    const dataPayload = {
+      resultData: {
+        runData: {
+          httpNode: [
+            {
+              startTime: 1000,
+              executionTime: 50,
+              executionStatus: 'success',
+            },
+          ],
         },
+        lastNodeExecuted: 'httpNode',
       },
     };
-    const callTool = vi.fn().mockResolvedValue({ execution: executionWithData });
+    const callTool = vi.fn().mockResolvedValue({ execution: baseExecution, data: dataPayload });
     const result = await getExecution('wf-1', 'exec-1', callTool, { includeData: true });
 
     expect(result.status).toBe('success');

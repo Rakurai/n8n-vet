@@ -5,27 +5,35 @@
  * Each formatter takes a typed result and returns a printable string.
  */
 
+import type { McpError } from '../errors.js';
 import type { DiagnosticSummary } from '../types/diagnostic.js';
 import type { TrustStatusReport } from '../types/surface.js';
 import type { GuardrailExplanation } from '../types/surface.js';
-import type { McpError } from '../errors.js';
 
 // ── ANSI helpers ────────────────────────────────────────────────
 
-const RESET = '\x1b[0m';
-const BOLD = '\x1b[1m';
-const DIM = '\x1b[2m';
-const RED = '\x1b[31m';
-const GREEN = '\x1b[32m';
-const YELLOW = '\x1b[33m';
-const CYAN = '\x1b[36m';
+/** Detect whether color should be suppressed (NO_COLOR env or non-TTY stdout). */
+const NO_COLOR = 'NO_COLOR' in process.env || !process.stdout.isTTY;
+
+const RESET = NO_COLOR ? '' : '\x1b[0m';
+const BOLD = NO_COLOR ? '' : '\x1b[1m';
+const DIM = NO_COLOR ? '' : '\x1b[2m';
+const RED = NO_COLOR ? '' : '\x1b[31m';
+const GREEN = NO_COLOR ? '' : '\x1b[32m';
+const YELLOW = NO_COLOR ? '' : '\x1b[33m';
+const CYAN = NO_COLOR ? '' : '\x1b[36m';
 
 function statusColor(status: string): string {
   switch (status) {
-    case 'pass': return GREEN;
-    case 'fail': case 'error': return RED;
-    case 'skipped': return YELLOW;
-    default: return '';
+    case 'pass':
+      return GREEN;
+    case 'fail':
+    case 'error':
+      return RED;
+    case 'skipped':
+      return YELLOW;
+    default:
+      return '';
   }
 }
 
@@ -37,7 +45,9 @@ export function formatDiagnosticSummary(summary: DiagnosticSummary): string {
 
   lines.push(`${BOLD}Status:${RESET} ${color}${summary.status.toUpperCase()}${RESET}`);
   lines.push(`${BOLD}Evidence:${RESET} ${summary.evidenceBasis}`);
-  lines.push(`${BOLD}Target:${RESET} ${summary.target.description} (${summary.target.nodes.length} nodes${summary.target.automatic ? ', auto' : ''})`);
+  lines.push(
+    `${BOLD}Target:${RESET} ${summary.target.description} (${summary.target.nodes.length} nodes${summary.target.automatic ? ', auto' : ''})`,
+  );
 
   if (summary.errors.length > 0) {
     lines.push('');
@@ -92,7 +102,9 @@ export function formatTrustStatus(report: TrustStatusReport): string {
     lines.push(`${BOLD}${GREEN}Trusted (${report.trustedNodes.length}):${RESET}`);
     for (const n of report.trustedNodes) {
       const unchanged = n.contentUnchanged ? '' : ` ${YELLOW}(content changed)${RESET}`;
-      lines.push(`  ${GREEN}✓${RESET} ${n.name} — ${n.validationLayer} at ${n.validatedAt}${unchanged}`);
+      lines.push(
+        `  ${GREEN}✓${RESET} ${n.name} — ${n.validationLayer} at ${n.validatedAt}${unchanged}`,
+      );
     }
   }
 
@@ -106,7 +118,9 @@ export function formatTrustStatus(report: TrustStatusReport): string {
 
   if (report.changedSinceLastValidation.length > 0) {
     lines.push('');
-    lines.push(`${BOLD}Changed since last validation:${RESET} ${report.changedSinceLastValidation.join(', ')}`);
+    lines.push(
+      `${BOLD}Changed since last validation:${RESET} ${report.changedSinceLastValidation.join(', ')}`,
+    );
   }
 
   return lines.join('\n');
@@ -128,14 +142,18 @@ export function formatGuardrailExplanation(explanation: GuardrailExplanation): s
 
   const tr = explanation.targetResolution;
   lines.push('');
-  lines.push(`${BOLD}Target:${RESET} ${tr.resolvedNodes.length} nodes${tr.automatic ? ' (auto-resolved)' : ''}`);
+  lines.push(
+    `${BOLD}Target:${RESET} ${tr.resolvedNodes.length} nodes${tr.automatic ? ' (auto-resolved)' : ''}`,
+  );
   if (tr.resolvedNodes.length > 0) {
     lines.push(`  ${tr.resolvedNodes.join(', ')}`);
   }
 
   const cap = explanation.capabilities;
   lines.push('');
-  lines.push(`${BOLD}Capabilities:${RESET} static=${cap.staticAnalysis} rest=${cap.restApi} mcp=${cap.mcpTools}`);
+  lines.push(
+    `${BOLD}Capabilities:${RESET} static=${cap.staticAnalysis} rest=${cap.restApi} mcp=${cap.mcpTools}`,
+  );
 
   return lines.join('\n');
 }

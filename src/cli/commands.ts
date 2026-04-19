@@ -6,15 +6,15 @@
  * output formatting and exit codes.
  */
 
-import type { OrchestratorDeps } from '../orchestrator/types.js';
-import type { ValidationRequest } from '../orchestrator/types.js';
-import { interpret } from '../orchestrator/interpret.js';
-import type { AgentTarget, ValidationLayer } from '../types/target.js';
-import type { DiagnosticSummary } from '../types/diagnostic.js';
 import type { McpResponse } from '../errors.js';
 import { mapToMcpError } from '../errors.js';
-import type { TrustStatusReport, GuardrailExplanation } from '../types/surface.js';
-import { buildTrustStatusReport, buildGuardrailExplanation } from '../surface.js';
+import { interpret } from '../orchestrator/interpret.js';
+import type { OrchestratorDeps } from '../orchestrator/types.js';
+import type { ValidationRequest } from '../orchestrator/types.js';
+import { buildGuardrailExplanation, buildTrustStatusReport } from '../surface.js';
+import type { DiagnosticSummary } from '../types/diagnostic.js';
+import type { GuardrailExplanation, TrustStatusReport } from '../types/surface.js';
+import type { AgentTarget, ValidationLayer } from '../types/target.js';
 
 // ── Option types ────────────────────────────────────────────────
 

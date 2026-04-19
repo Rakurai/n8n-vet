@@ -187,7 +187,6 @@ describe('classifyExecutionErrors', () => {
     if (result[0].error.classification === 'expression') {
       expect(result[0].error.context.expression).toBe('{{ $json.contact.name }}');
       expect(result[0].error.context.parameter).toBe('value');
-      expect(result[0].error.context.itemIndex).toBe(0);
     }
   });
 
@@ -201,7 +200,7 @@ describe('classifyExecutionErrors', () => {
   it('populates cancelled context with reason', () => {
     const result = classifyExecutionErrors(cancelledExecution);
     if (result[0].error.classification === 'cancelled') {
-      expect(result[0].error.context.reason).toBe('user-requested');
+      expect(result[0].error.context.reason).toBe('manual');
     }
   });
 

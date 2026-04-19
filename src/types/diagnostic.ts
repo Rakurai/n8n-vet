@@ -3,9 +3,9 @@
  * including error classification, node annotations, and execution metadata.
  */
 
+import type { GuardrailDecision } from './guardrail.js';
 import type { NodeIdentity } from './identity.js';
 import type { ValidationLayer } from './target.js';
-import type { GuardrailDecision } from './guardrail.js';
 
 /** The resolved validation target after automatic or agent-specified scope resolution. */
 export interface ResolvedTarget {

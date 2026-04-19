@@ -8,22 +8,22 @@
 
 import type { OrchestratorDeps } from './orchestrator/types.js';
 
-import { parseWorkflowFile, buildGraph } from './static-analysis/graph.js';
-import { traceExpressions } from './static-analysis/expressions.js';
 import { detectDataLoss } from './static-analysis/data-loss.js';
-import { checkSchemas } from './static-analysis/schemas.js';
+import { traceExpressions } from './static-analysis/expressions.js';
+import { buildGraph, parseWorkflowFile } from './static-analysis/graph.js';
 import { validateNodeParams } from './static-analysis/params.js';
+import { checkSchemas } from './static-analysis/schemas.js';
 
-import { loadTrustState, persistTrustState } from './trust/persistence.js';
 import { computeChangeSet } from './trust/change.js';
+import { loadTrustState, persistTrustState } from './trust/persistence.js';
 import { invalidateTrust, recordValidation } from './trust/trust.js';
 
 import { evaluate } from './guardrails/evaluate.js';
 
-import { executeBounded, getExecutionData } from './execution/rest-client.js';
+import { detectCapabilities } from './execution/capabilities.js';
 import { executeSmoke } from './execution/mcp-client.js';
 import { constructPinData } from './execution/pin-data.js';
-import { detectCapabilities } from './execution/capabilities.js';
+import { executeBounded, getExecutionData } from './execution/rest-client.js';
 
 import { synthesize } from './diagnostics/synthesize.js';
 

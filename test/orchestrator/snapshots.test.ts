@@ -142,15 +142,15 @@ describe('snapshot round-trip', () => {
 });
 
 describe('deriveWorkflowId', () => {
-  it('produces consistent results for the same absolute path', () => {
+  it('produces consistent results for the same path', () => {
     const id1 = deriveWorkflowId('/home/user/project/workflow.ts');
     const id2 = deriveWorkflowId('/home/user/project/workflow.ts');
     expect(id1).toBe(id2);
   });
 
-  it('resolves relative paths to absolute', () => {
+  it('resolves relative paths to project-relative form', () => {
     const id = deriveWorkflowId('./relative/path.ts');
-    expect(id).toMatch(/^\//);
+    expect(id).toBe('relative/path.ts');
   });
 
   it('produces different IDs for different paths', () => {

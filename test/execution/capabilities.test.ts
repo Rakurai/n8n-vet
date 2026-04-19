@@ -153,24 +153,22 @@ describe('detectCapabilities', () => {
     ]);
   });
 
-  it('fetch throws → throws ExecutionInfrastructureError unreachable', async () => {
+  it('fetch throws → degrades to static-only (restAvailable false)', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('ECONNREFUSED'));
 
-    await expect(detectCapabilities()).rejects.toSatisfy(
-      (err: unknown) =>
-        err instanceof ExecutionInfrastructureError && err.reason === 'unreachable',
-    );
+    const result = await detectCapabilities();
+    expect(result.level).toBe('static-only');
+    expect(result.restAvailable).toBe(false);
   });
 
-  it('fetch returns 401 → throws ExecutionInfrastructureError auth-failure', async () => {
+  it('fetch returns 401 → degrades to static-only (restAvailable false)', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response('Unauthorized', { status: 401 }),
     );
 
-    await expect(detectCapabilities()).rejects.toSatisfy(
-      (err: unknown) =>
-        err instanceof ExecutionInfrastructureError && err.reason === 'auth-failure',
-    );
+    const result = await detectCapabilities();
+    expect(result.level).toBe('static-only');
+    expect(result.restAvailable).toBe(false);
   });
 
   it('workflow not found → throws ExecutionPreconditionError workflow-not-found', async () => {
@@ -196,6 +194,7 @@ describe('detectCapabilities', () => {
     );
 
     const callTool = vi.fn()
+      .mockRejectedValueOnce(new Error('tools/list not found'))  // tools/list — unavailable
       .mockResolvedValueOnce({ content: [] })   // test_workflow — available
       .mockResolvedValueOnce({ content: [] })   // get_execution — available
       .mockRejectedValueOnce(new Error('tool not found')); // prepare_test_pin_data — unavailable
@@ -204,6 +203,15 @@ describe('detectCapabilities', () => {
 
     expect(result.mcpTools).toEqual(['test_workflow', 'get_execution']);
     expect(result.mcpAvailable).toBe(true);
+  });
+
+  it('no credentials available → degrades to static-only', async () => {
+    delete process.env['N8N_HOST'];
+    delete process.env['N8N_API_KEY'];
+
+    const result = await detectCapabilities();
+    expect(result.level).toBe('static-only');
+    expect(result.restAvailable).toBe(false);
   });
 
   it('network error during workflow check → throws ExecutionInfrastructureError unreachable', async () => {

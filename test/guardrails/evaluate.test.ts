@@ -44,14 +44,16 @@ describe('evaluate pipeline', () => {
     });
   });
 
-  describe('Step 3: identical rerun', () => {
+  describe('Step 7: identical rerun', () => {
     it('returns refuse with overridable=true when all trusted + no changes + matching fixture', () => {
-      const graph = linearGraph();
+      // Use branchingGraph (10 nodes) with 6-node target (60%) to avoid broad-target warn
+      const graph = branchingGraph();
       const allNames = [...graph.nodes.keys()];
+      const targetNames = allNames.slice(0, 6);
       const input = makeEvaluationInput({
         graph,
-        targetNodes: nodeSet(...allNames),
-        changeSet: noChanges(allNames),
+        targetNodes: nodeSet(...targetNames),
+        changeSet: noChanges(targetNames),
         currentHashes: uniformHashes(allNames),
         trustState: fullTrustState(allNames, { fixtureHash: 'fixture-001' }),
         fixtureHash: 'fixture-001',
@@ -347,7 +349,7 @@ describe('full pipeline integration — deterministic evaluation order', () => {
     expect(decision.overridable).toBe(false);
   });
 
-  it('Step 3 wins over Steps 4-8: identical rerun → refuse before redirect check', () => {
+  it('Step 3 wins over Steps 4-8: redirect fires before narrowing and refuse', () => {
     const graph = branchingGraph();
     const allNames = [...graph.nodes.keys()];
     const input = makeEvaluationInput({
@@ -357,9 +359,9 @@ describe('full pipeline integration — deterministic evaluation order', () => {
       currentHashes: uniformHashes(allNames),
       trustState: fullTrustState(allNames, { fixtureHash: 'fixture-x' }),
       fixtureHash: 'fixture-x',
-      layer: 'both', // would normally trigger redirect, but step 3 wins
+      layer: 'both', // would trigger redirect since all changes are structurally analyzable
     });
-    expect(evaluate(input).action).toBe('refuse');
+    expect(evaluate(input).action).toBe('redirect');
   });
 
   it('Step 4 wins over Steps 5-8: redirect fires before narrowing', () => {

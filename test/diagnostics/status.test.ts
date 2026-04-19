@@ -47,6 +47,7 @@ describe('determineStatus', () => {
         message: 'Failed to initialize workflow',
         description: null,
         node: null,
+        context: {},
       },
       nodeResults: new Map(),
     };

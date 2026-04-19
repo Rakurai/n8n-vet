@@ -3,7 +3,7 @@
  */
 
 import type { NodeIdentity } from './identity.js';
-import type { ValidationTarget, ValidationLayer } from './target.js';
+import type { ValidationLayer, ValidationTarget } from './target.js';
 
 /** Base fields shared by all guardrail decisions. */
 export interface GuardrailDecisionBase {

@@ -9,25 +9,32 @@
 import { randomUUID } from 'node:crypto';
 import { createHash } from 'node:crypto';
 import stringify from 'json-stable-stringify';
-import type { DiagnosticSummary, AvailableCapabilities, ValidationMeta } from '../types/diagnostic.js';
+import type { ExecutionData } from '../diagnostics/types.js';
+import { readCachedPinData, writeCachedPinData } from '../execution/pin-data.js';
+import { resolveCredentials } from '../execution/rest-client.js';
+import { type RawResultData, extractExecutionData } from '../execution/results.js';
+import type { ExecutionStatus, PinData, PinDataItem } from '../execution/types.js';
+import type { EvaluationInput } from '../guardrails/types.js';
+import type { StaticFinding } from '../static-analysis/types.js';
+import { computeContentHash, computeWorkflowHash } from '../trust/hash.js';
+import type {
+  AvailableCapabilities,
+  DiagnosticSummary,
+  ValidationMeta,
+} from '../types/diagnostic.js';
 import type { WorkflowGraph } from '../types/graph.js';
+import type { GuardrailDecision } from '../types/guardrail.js';
 import type { NodeIdentity } from '../types/identity.js';
 import type { ValidationLayer } from '../types/target.js';
 import type { NodeChangeSet } from '../types/trust.js';
-import type { GuardrailDecision } from '../types/guardrail.js';
-import type { EvaluationInput } from '../guardrails/types.js';
-import type { StaticFinding } from '../static-analysis/types.js';
-import type { ExecutionData } from '../diagnostics/types.js';
-import type { PinData, PinDataItem, ResolvedCredentials } from '../execution/types.js';
-import { computeContentHash } from '../trust/hash.js';
+import { selectPaths } from './path.js';
+import { resolveTarget } from './resolve.js';
 import {
+  type OrchestratorDeps,
+  type ValidationRequest,
   ValidationRequestSchema,
   deriveWorkflowId,
-  type ValidationRequest,
-  type OrchestratorDeps,
 } from './types.js';
-import { resolveTarget } from './resolve.js';
-import { selectPaths } from './path.js';
 
 /**
  * Interpret a validation request — the single public entry point for the orchestrator.
@@ -44,11 +51,7 @@ export async function interpret(
   // ── Step 1: Validate and parse ──────────────────────────────────
   const parseResult = ValidationRequestSchema.safeParse(request);
   if (!parseResult.success) {
-    return errorDiagnostic(
-      `Invalid request: ${parseResult.error.message}`,
-      runId,
-      startTime,
-    );
+    return errorDiagnostic(`Invalid request: ${parseResult.error.message}`, runId, startTime);
   }
 
   let graph: WorkflowGraph;
@@ -86,10 +89,7 @@ export async function interpret(
   let paths = selectPaths(slice, graph, changeSet, activeTrust);
 
   // ── Step 5: Consult guardrails ──────────────────────────────────
-  const expressionRefs = deps.traceExpressions(
-    graph,
-    resolvedTarget.nodes,
-  );
+  const expressionRefs = deps.traceExpressions(graph, resolvedTarget.nodes);
 
   const currentHashes = computeCurrentHashes(graph, resolvedTarget.nodes);
   const fixtureHash = request.pinData ? hashPinData(request.pinData) : null;
@@ -115,12 +115,7 @@ export async function interpret(
 
   // Route on guardrail action
   if (guardrailDecision.action === 'refuse' && !request.force) {
-    return skippedDiagnostic(
-      resolvedTarget,
-      guardrailDecisions,
-      runId,
-      startTime,
-    );
+    return skippedDiagnostic(resolvedTarget, guardrailDecisions, runId, startTime);
   }
 
   if (guardrailDecision.action === 'narrow' && !request.force) {
@@ -143,6 +138,7 @@ export async function interpret(
   // ── Step 6: Run validation ──────────────────────────────────────
   const staticFindings: StaticFinding[] = [];
   let executionData: ExecutionData | null = null;
+  let usedPinData: PinData | null = null;
   const capabilities: AvailableCapabilities = {
     staticAnalysis: true,
     restApi: false,
@@ -172,23 +168,36 @@ export async function interpret(
   // Step 6b: Execution
   if (effectiveLayer === 'execution' || effectiveLayer === 'both') {
     try {
-      const detected = await deps.detectCapabilities();
+      const detected = await deps.detectCapabilities(
+        request.callTool ? { callTool: request.callTool } : undefined,
+      );
       capabilities.restApi = detected.restAvailable;
       capabilities.mcpTools = detected.mcpAvailable;
 
       if (detected.restAvailable || detected.mcpAvailable) {
-        const trustedBoundaries = resolvedTarget.nodes.filter(
-          (n) => activeTrust.nodes.has(n),
-        );
+        const trustedBoundaries = resolvedTarget.nodes.filter((n) => activeTrust.nodes.has(n));
+        // Load cached pin data as prior artifacts (tier 2)
+        const priorArtifacts: Record<string, PinDataItem[]> = {};
+        const nodeHashes = computeCurrentHashes(graph, trustedBoundaries);
+        for (const boundary of trustedBoundaries) {
+          const hash = nodeHashes.get(boundary);
+          if (hash) {
+            const cached = await readCachedPinData(workflowId, hash);
+            if (cached) priorArtifacts[boundary as string] = cached;
+          }
+        }
+
         const pinDataResult = deps.constructPinData(
           graph,
           trustedBoundaries,
           request.pinData as Record<string, PinDataItem[]> | undefined,
+          Object.keys(priorArtifacts).length > 0 ? priorArtifacts : undefined,
         );
+        usedPinData = pinDataResult.pinData;
 
-        let execResult;
+        let execResult: import('../execution/types.js').ExecutionResult | undefined;
         if (request.destinationNode !== null && detected.restAvailable) {
-          const creds = resolveExecCredentials();
+          const creds = await resolveCredentials();
           execResult = await deps.executeBounded(
             workflowId,
             request.destinationNode,
@@ -196,26 +205,16 @@ export async function interpret(
             creds,
             request.destinationMode,
           );
-        } else if (request.target.kind === 'workflow' && detected.mcpAvailable) {
-          // MCP smoke test requires a callTool injected via deps.
-          // Without MCP capability wired through deps, fall through to REST.
-          if (detected.restAvailable) {
-            const destination = findFurthestDownstream(slice);
-            if (destination) {
-              const creds = resolveExecCredentials();
-              execResult = await deps.executeBounded(
-                workflowId,
-                destination as string,
-                pinDataResult.pinData,
-                creds,
-                'inclusive',
-              );
-            }
-          }
-        } else if (detected.restAvailable) {
+        } else if (
+          request.target.kind === 'workflow' &&
+          detected.mcpAvailable &&
+          request.callTool
+        ) {
+          execResult = await deps.executeSmoke(workflowId, pinDataResult.pinData, request.callTool);
+        } else if (request.target.kind === 'workflow' && detected.restAvailable) {
           const destination = findFurthestDownstream(slice);
           if (destination) {
-            const creds = resolveExecCredentials();
+            const creds = await resolveCredentials();
             execResult = await deps.executeBounded(
               workflowId,
               destination as string,
@@ -229,9 +228,20 @@ export async function interpret(
         if (execResult) {
           executionId = execResult.executionId;
           if (detected.restAvailable && execResult.executionId) {
-            const creds = resolveExecCredentials();
-            const rawData = await deps.getExecutionData(execResult.executionId, creds);
-            executionData = rawData as ExecutionData | null;
+            const creds = await resolveCredentials();
+            const rawResponse = await deps.getExecutionData(execResult.executionId, creds);
+            if (rawResponse != null) {
+              const response = rawResponse as {
+                status?: string;
+                data?: { resultData?: RawResultData };
+              };
+              if (response.data?.resultData) {
+                executionData = extractExecutionData(
+                  response.data.resultData,
+                  (response.status ?? 'unknown') as ExecutionStatus,
+                );
+              }
+            }
           }
         }
       }
@@ -244,7 +254,16 @@ export async function interpret(
     }
   }
 
-  // ── Step 7: Synthesize ──────────────────────────────────────────
+  // ── Step 7: Deduplicate and Synthesize ──────────────────────────
+
+  // Deduplicate static findings by (node, kind, message)
+  const seen = new Set<string>();
+  const deduplicatedFindings = staticFindings.filter((f) => {
+    const key = `${f.node}|${f.kind}|${f.message}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
   const meta: ValidationMeta = {
     runId,
@@ -255,7 +274,7 @@ export async function interpret(
   };
 
   const summary = deps.synthesize({
-    staticFindings,
+    staticFindings: deduplicatedFindings,
     executionData,
     trustState: activeTrust,
     guardrailDecisions,
@@ -276,12 +295,23 @@ export async function interpret(
       runId,
       fixtureHash,
     );
-    deps.persistTrustState(updatedTrust, workflowId);
+    deps.persistTrustState(updatedTrust, computeWorkflowHash(graph));
   }
 
   // ── Step 9: Save snapshot (pass only) ───────────────────────────
   if (summary.status === 'pass') {
     deps.saveSnapshot(workflowId, graph);
+
+    // Cache used pin data for future tier 2 sourcing
+    if (usedPinData) {
+      const hashes = computeCurrentHashes(graph, [...Object.keys(usedPinData)] as NodeIdentity[]);
+      for (const [nodeId, hash] of hashes) {
+        const items = usedPinData[nodeId as string];
+        if (items) {
+          await writeCachedPinData(workflowId, hash, items);
+        }
+      }
+    }
   }
 
   // ── Step 10: Return ─────────────────────────────────────────────
@@ -296,7 +326,7 @@ function computeCurrentHashes(
 ): Map<NodeIdentity, string> {
   const hashes = new Map<NodeIdentity, string>();
   for (const nodeId of nodes) {
-    const node = graph.nodes.get(nodeId as string);
+    const node = graph.nodes.get(nodeId);
     if (node) {
       hashes.set(nodeId, computeContentHash(node, graph.ast));
     }
@@ -306,16 +336,10 @@ function computeCurrentHashes(
 
 function hashPinData(pinData: PinData): string {
   const serialized = stringify(pinData);
-  if (serialized === undefined) return '';
+  if (serialized === undefined) {
+    throw new Error('Pin data contains non-serializable values');
+  }
   return createHash('sha256').update(serialized).digest('hex');
-}
-
-function resolveExecCredentials(): ResolvedCredentials {
-  const host = process.env['N8N_HOST'];
-  const apiKey = process.env['N8N_API_KEY'];
-  if (!host) throw new Error('N8N_HOST environment variable is required for execution');
-  if (!apiKey) throw new Error('N8N_API_KEY environment variable is required for execution');
-  return { host, apiKey };
 }
 
 /** Find the furthest downstream node in a slice for bounded execution. */
@@ -323,7 +347,7 @@ function findFurthestDownstream(
   slice: import('../types/slice.js').SliceDefinition,
 ): NodeIdentity | null {
   if (slice.exitPoints.length > 0) {
-    return slice.exitPoints[0]!;
+    return slice.exitPoints[0] ?? null;
   }
   return null;
 }
@@ -343,11 +367,7 @@ function collectValidatedNodes(
   return targetNodes.filter((n) => covered.has(n as string));
 }
 
-function errorDiagnostic(
-  message: string,
-  runId: string,
-  startTime: number,
-): DiagnosticSummary {
+function errorDiagnostic(message: string, runId: string, startTime: number): DiagnosticSummary {
   return {
     schemaVersion: 1,
     status: 'error',

@@ -23,3 +23,8 @@ export class ContentHashError extends Error {
     super(`Failed to hash content for node: ${nodeName}`);
   }
 }
+
+/** Thrown when trust recording encounters an invalid state. */
+export class TrustRecordingError extends Error {
+  override readonly name = 'TrustRecordingError' as const;
+}

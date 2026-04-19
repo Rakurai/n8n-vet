@@ -1,19 +1,29 @@
 /**
  * Internal types for the diagnostics subsystem — synthesis input, intermediate
- * classification, and execution data interfaces consumed from upstream subsystems.
+ * classification, and re-exports of execution types consumed by this subsystem.
  */
 
-import type { NodeIdentity } from '../types/identity.js';
-import type { TrustState } from '../types/trust.js';
-import type { GuardrailDecision } from '../types/guardrail.js';
-import type {
-  ResolvedTarget,
-  DiagnosticError,
-  AvailableCapabilities,
-  ValidationMeta,
-  ErrorClassification,
-} from '../types/diagnostic.js';
 import type { StaticFinding } from '../static-analysis/types.js';
+import type {
+  AvailableCapabilities,
+  DiagnosticError,
+  ErrorClassification,
+  ResolvedTarget,
+  ValidationMeta,
+} from '../types/diagnostic.js';
+import type { GuardrailDecision } from '../types/guardrail.js';
+import type { TrustState } from '../types/trust.js';
+
+// Re-export execution types consumed by diagnostics
+export type {
+  ExecutionData,
+  NodeExecutionResult,
+  ExecutionHint,
+  ExecutionErrorData,
+  ExecutionErrorDataBase,
+  SourceInfo,
+  ExecutionStatus,
+} from '../execution/types.js';
 
 // ---------------------------------------------------------------------------
 // Synthesis input
@@ -28,79 +38,12 @@ export interface SynthesisInput {
   resolvedTarget: ResolvedTarget;
   capabilities: AvailableCapabilities;
   meta: ValidationMeta;
+  /** Whether static analysis was actually run (vs. skipped). Defaults to staticFindings.length > 0. */
+  staticAnalysisRan?: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Execution data (temporary — move to src/execution/types.ts in Phase 5)
-// ---------------------------------------------------------------------------
-
-/** Per-run execution results from the n8n instance. */
-export interface ExecutionData {
-  status: 'success' | 'error' | 'cancelled';
-  lastNodeExecuted: string | null;
-  error: ExecutionErrorData | null;
-  nodeResults: Map<NodeIdentity, NodeExecutionResult>;
-}
-
-/** Per-node execution result with timing, error, and source information. */
-export interface NodeExecutionResult {
-  executionIndex: number;
-  status: 'success' | 'error';
-  executionTimeMs: number;
-  error: ExecutionErrorData | null;
-  source: { previousNodeOutput: number | null };
-  hints: NodeExecutionHint[];
-  /** Present when this node's execution used pin data instead of live input. */
-  pinDataSource?: 'agent' | 'execution-history' | 'schema' | 'stub';
-}
-
-/** Runtime hint emitted by n8n during node execution. */
-export interface NodeExecutionHint {
-  message: string;
-}
-
-/**
- * Execution error data, discriminated on `contextKind`.
- *
- * When constructor names are available in the error, the `type` field carries
- * the class name (e.g. 'NodeApiError'). When unavailable (serialized errors),
- * classification falls back to `contextKind`.
- */
-export type ExecutionErrorData =
-  | {
-      contextKind: 'api';
-      type: string;
-      message: string;
-      description: string | null;
-      node: string | null;
-      httpCode?: number;
-      errorCode?: string;
-    }
-  | {
-      contextKind: 'cancellation';
-      type: string;
-      message: string;
-      description: string | null;
-      node: string | null;
-      reason?: string;
-    }
-  | {
-      contextKind: 'expression';
-      type: string;
-      message: string;
-      description: string | null;
-      node: string | null;
-      expression?: string;
-      parameter?: string;
-      itemIndex?: number;
-    }
-  | {
-      contextKind: 'other';
-      type: string;
-      message: string;
-      description: string | null;
-      node: string | null;
-    };
+// Import for use in SynthesisInput type
+import type { ExecutionData } from '../execution/types.js';
 
 // ---------------------------------------------------------------------------
 // Classification intermediates

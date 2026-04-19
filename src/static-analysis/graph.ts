@@ -6,12 +6,14 @@
  * Also provides parseWorkflowFile() to auto-detect and parse .ts/.json files.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { extname } from 'node:path';
-import type { WorkflowAST, ConnectionAST } from '@n8n-as-code/transformer';
-import type { WorkflowGraph, GraphNode, Edge } from '../types/graph.js';
+import type { ConnectionAST, NodeAST, WorkflowAST } from '@n8n-as-code/transformer';
+import type { Edge, GraphNode, WorkflowGraph } from '../types/graph.js';
+import type { NodeIdentity } from '../types/identity.js';
+import { nodeIdentity } from '../types/identity.js';
 import { classifyNode } from './classify.js';
-import { MalformedWorkflowError, ConfigurationError } from './errors.js';
+import { ConfigurationError, MalformedWorkflowError } from './errors.js';
 
 /**
  * Construct a traversable WorkflowGraph from a parsed WorkflowAST.
@@ -24,17 +26,15 @@ import { MalformedWorkflowError, ConfigurationError } from './errors.js';
  * @throws {MalformedWorkflowError} if invariants are violated.
  */
 export function buildGraph(ast: WorkflowAST): WorkflowGraph {
-  const nodes = new Map<string, GraphNode>();
-  const displayNameIndex = new Map<string, string>();
+  const nodes = new Map<NodeIdentity, GraphNode>();
+  const displayNameIndex = new Map<string, NodeIdentity>();
 
   // Build node map and displayNameIndex
   for (const nodeAst of ast.nodes) {
-    const name = nodeAst.propertyName;
+    const name = nodeIdentity(nodeAst.propertyName);
 
     if (nodes.has(name)) {
-      throw new MalformedWorkflowError(
-        `Duplicate node property name: '${name}'`,
-      );
+      throw new MalformedWorkflowError(`Duplicate node property name: '${name}'`);
     }
 
     const graphNode: GraphNode = {
@@ -44,17 +44,21 @@ export function buildGraph(ast: WorkflowAST): WorkflowGraph {
       typeVersion: nodeAst.version,
       parameters: nodeAst.parameters,
       credentials: nodeAst.credentials ?? null,
-      disabled: false, // NodeAST has no disabled field (research.md R2)
+      disabled: (nodeAst as NodeAST & { disabled?: boolean }).disabled ?? false,
       classification: classifyNode(nodeAst),
     };
 
     nodes.set(name, graphNode);
+
+    if (displayNameIndex.has(nodeAst.displayName)) {
+      throw new MalformedWorkflowError(`Duplicate node displayName: '${nodeAst.displayName}'`);
+    }
     displayNameIndex.set(nodeAst.displayName, name);
   }
 
   // Build edges and adjacency maps
-  const forward = new Map<string, Edge[]>();
-  const backward = new Map<string, Edge[]>();
+  const forward = new Map<NodeIdentity, Edge[]>();
+  const backward = new Map<NodeIdentity, Edge[]>();
 
   // Initialize empty arrays for all nodes
   for (const name of nodes.keys()) {
@@ -76,8 +80,8 @@ export function buildGraph(ast: WorkflowAST): WorkflowGraph {
       );
     }
 
-    forward.get(edge.from)!.push(edge);
-    backward.get(edge.to)!.push(edge);
+    forward.get(edge.from)?.push(edge);
+    backward.get(edge.to)?.push(edge);
   }
 
   return { nodes, forward, backward, displayNameIndex, ast };
@@ -96,16 +100,14 @@ export async function parseWorkflowFile(filePath: string): Promise<WorkflowAST> 
   const ext = extname(filePath).toLowerCase();
 
   if (ext === '.ts') {
-    return parseTypeScriptFile(filePath);
+    return await parseTypeScriptFile(filePath);
   }
 
   if (ext === '.json') {
-    return parseJsonFile(filePath);
+    return await parseJsonFile(filePath);
   }
 
-  throw new MalformedWorkflowError(
-    `Unsupported file extension '${ext}'. Expected .ts or .json`,
-  );
+  throw new MalformedWorkflowError(`Unsupported file extension '${ext}'. Expected .ts or .json`);
 }
 
 async function parseTypeScriptFile(filePath: string): Promise<WorkflowAST> {
@@ -124,7 +126,7 @@ async function parseTypeScriptFile(filePath: string): Promise<WorkflowAST> {
 async function parseJsonFile(filePath: string): Promise<WorkflowAST> {
   try {
     const { JsonToAstParser } = await import('@n8n-as-code/transformer');
-    const raw = readFileSync(filePath, 'utf-8');
+    const raw = await readFile(filePath, 'utf-8');
     const json: unknown = JSON.parse(raw);
     const parser = new JsonToAstParser();
     return parser.parse(json as import('@n8n-as-code/transformer').N8nWorkflow);
@@ -141,10 +143,10 @@ async function parseJsonFile(filePath: string): Promise<WorkflowAST> {
  */
 function connectionToEdge(conn: ConnectionAST): Edge {
   return {
-    from: conn.from.node,
+    from: nodeIdentity(conn.from.node),
     fromOutput: conn.from.output,
     isError: conn.from.isError ?? false,
-    to: conn.to.node,
+    to: nodeIdentity(conn.to.node),
     toInput: conn.to.input,
   };
 }

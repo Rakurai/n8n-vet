@@ -1,7 +1,7 @@
 /**
  * Tests for assignAnnotations — node annotation assignment logic.
  *
- * Verifies priority ordering (validated → trusted → skipped), one-per-node
+ * Verifies priority ordering (validated > trusted > skipped), one-per-node
  * guarantee, and correct classification under mixed conditions.
  */
 
@@ -126,69 +126,71 @@ describe('assignAnnotations', () => {
 });
 
 // ---------------------------------------------------------------------------
-// US3: Mocked node annotations and reason strings
+// Executed node annotations (replaces US3 mocked annotations)
 // ---------------------------------------------------------------------------
 
-describe('assignAnnotations — US3 mocked annotations', () => {
-  function mockedExecution(
-    pinDataSource: 'agent' | 'execution-history' | 'schema' | 'stub',
-  ): import('../../src/diagnostics/types.js').ExecutionData {
-    return {
+describe('assignAnnotations — executed node annotations', () => {
+  it('marks a node with execution results as validated', () => {
+    const exec: import('../../src/diagnostics/types.js').ExecutionData = {
       status: 'success',
       lastNodeExecuted: 'httpRequest',
       error: null,
       nodeResults: new Map([
         [
           nodeIdentity('httpRequest'),
-          {
-            executionIndex: 0,
-            status: 'success',
-            executionTimeMs: 5,
-            error: null,
-            source: { previousNodeOutput: null },
-            hints: [],
-            pinDataSource,
-          },
+          [
+            {
+              executionIndex: 0,
+              status: 'success',
+              executionTimeMs: 5,
+              error: null,
+              source: null,
+              hints: [],
+            },
+          ],
         ],
       ]),
     };
-  }
 
-  it('marks a node with pinDataSource as mocked with correct reason', () => {
-    const exec = mockedExecution('agent');
     const annotations = assignAnnotations(singleNodeTarget, emptyTrustState, exec, []);
 
     expect(annotations).toHaveLength(1);
-    expect(annotations[0].status).toBe('mocked');
-    expect(annotations[0].reason).toBe('Pin data provided from agent');
+    expect(annotations[0].status).toBe('validated');
   });
 
-  it('mocked priority is higher than validated (pinDataSource wins over findings)', () => {
-    const exec = mockedExecution('schema');
-    // httpRequest has both execution with pinDataSource AND a static finding
+  it('validated from execution wins over trusted', () => {
+    const exec: import('../../src/diagnostics/types.js').ExecutionData = {
+      status: 'success',
+      lastNodeExecuted: 'httpRequest',
+      error: null,
+      nodeResults: new Map([
+        [
+          nodeIdentity('httpRequest'),
+          [
+            {
+              executionIndex: 0,
+              status: 'success',
+              executionTimeMs: 5,
+              error: null,
+              source: null,
+              hints: [],
+            },
+          ],
+        ],
+      ]),
+    };
+    // httpRequest has both execution results AND findings
     const findings = [{ node: nodeIdentity('httpRequest') }];
 
     const annotations = assignAnnotations(singleNodeTarget, emptyTrustState, exec, findings);
 
     expect(annotations).toHaveLength(1);
-    expect(annotations[0].status).toBe('mocked');
-  });
-
-  it.each([
-    ['agent', 'Pin data provided from agent'],
-    ['execution-history', 'Pin data provided from execution-history'],
-    ['schema', 'Pin data provided from schema'],
-    ['stub', 'Pin data provided from stub'],
-  ] as const)('pinDataSource "%s" produces reason: %s', (source, expectedReason) => {
-    const exec = mockedExecution(source);
-    const annotations = assignAnnotations(singleNodeTarget, emptyTrustState, exec, []);
-
-    expect(annotations[0].reason).toBe(expectedReason);
+    expect(annotations[0].status).toBe('validated');
   });
 
   it('every node in resolvedTarget gets exactly one annotation (no duplicates, no omissions)', () => {
     // threeNodeTarget: httpRequest, setFields, codeNode
-    // httpRequest is mocked, setFields is executed (no pin), codeNode is not in execution
+    // httpRequest is executed, setFields is executed, codeNode is not in execution
     const exec: import('../../src/diagnostics/types.js').ExecutionData = {
       status: 'success',
       lastNodeExecuted: 'setFields',
@@ -196,26 +198,29 @@ describe('assignAnnotations — US3 mocked annotations', () => {
       nodeResults: new Map([
         [
           nodeIdentity('httpRequest'),
-          {
-            executionIndex: 0,
-            status: 'success',
-            executionTimeMs: 5,
-            error: null,
-            source: { previousNodeOutput: null },
-            hints: [],
-            pinDataSource: 'execution-history' as const,
-          },
+          [
+            {
+              executionIndex: 0,
+              status: 'success',
+              executionTimeMs: 5,
+              error: null,
+              source: null,
+              hints: [],
+            },
+          ],
         ],
         [
           nodeIdentity('setFields'),
-          {
-            executionIndex: 1,
-            status: 'success',
-            executionTimeMs: 8,
-            error: null,
-            source: { previousNodeOutput: 0 },
-            hints: [],
-          },
+          [
+            {
+              executionIndex: 1,
+              status: 'success',
+              executionTimeMs: 8,
+              error: null,
+              source: { previousNode: 'httpRequest', previousNodeOutput: 0, previousNodeRun: 0 },
+              hints: [],
+            },
+          ],
         ],
       ]),
     };
@@ -227,7 +232,7 @@ describe('assignAnnotations — US3 mocked annotations', () => {
     expect(nodeSet.size).toBe(3);
 
     const byNode = new Map(annotations.map((a) => [a.node, a]));
-    expect(byNode.get(nodeIdentity('httpRequest'))!.status).toBe('mocked');
+    expect(byNode.get(nodeIdentity('httpRequest'))!.status).toBe('validated');
     expect(byNode.get(nodeIdentity('setFields'))!.status).toBe('validated');
     expect(byNode.get(nodeIdentity('codeNode'))!.status).toBe('skipped');
   });

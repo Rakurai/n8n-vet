@@ -9,6 +9,7 @@ import type { WorkflowGraph } from '../types/graph.js';
 import type { NodeIdentity } from '../types/identity.js';
 import type { ValidationLayer } from '../types/target.js';
 import type { ChangeKind, NodeChangeSet, NodeTrustRecord, TrustState } from '../types/trust.js';
+import { TrustRecordingError } from './errors.js';
 import { computeContentHash } from './hash.js';
 import type { RerunAssessment } from './types.js';
 
@@ -36,7 +37,7 @@ export function recordValidation(
   for (const nodeId of nodes) {
     const graphNode = graph.nodes.get(nodeId);
     if (!graphNode) {
-      throw new Error(`recordValidation: node '${nodeId}' not found in graph`);
+      throw new TrustRecordingError(`recordValidation: node '${nodeId}' not found in graph`);
     }
 
     const record: NodeTrustRecord = {
@@ -84,8 +85,9 @@ export function invalidateTrust(
 
   // BFS forward through the graph
   const queue = [...invalidationSet];
-  while (queue.length > 0) {
-    const current = queue.shift() as NodeIdentity;
+  let queueIdx = 0;
+  while (queueIdx < queue.length) {
+    const current = queue[queueIdx++];
     const downstream = graph.forward.get(current) ?? [];
     for (const edge of downstream) {
       const target = edge.to as NodeIdentity;
@@ -96,32 +98,39 @@ export function invalidateTrust(
     }
   }
 
+  // BFS backward from renamed nodes — upstream referencing nodes need re-validation
+  for (const mod of changeSet.modified) {
+    if (mod.changes.includes('rename') && !invalidationSet.has(mod.node)) {
+      invalidationSet.add(mod.node);
+    }
+  }
+  const renameBackwardQueue: NodeIdentity[] = changeSet.modified
+    .filter((m) => m.changes.includes('rename'))
+    .map((m) => m.node);
+  const renameVisited = new Set<NodeIdentity>(renameBackwardQueue);
+  let renameIdx = 0;
+  while (renameIdx < renameBackwardQueue.length) {
+    const current = renameBackwardQueue[renameIdx++];
+    const upstream = graph.backward.get(current) ?? [];
+    for (const edge of upstream) {
+      const source = edge.from as NodeIdentity;
+      if (renameVisited.has(source)) continue;
+      renameVisited.add(source);
+      if (!invalidationSet.has(source)) {
+        invalidationSet.add(source);
+        renameBackwardQueue.push(source);
+      }
+    }
+  }
+
   // Build new nodes map: copy trusted records, skip invalidated and stale
   const newNodes = new Map<NodeIdentity, NodeTrustRecord>();
   const currentNodeNames = new Set(graph.nodes.keys());
 
   for (const [nodeId, record] of state.nodes) {
     if (invalidationSet.has(nodeId)) continue;
-    if (!currentNodeNames.has(nodeId)) continue; // stale record (FR-021: spec says "during change detection" but removal here is functionally equivalent since invalidateTrust is always called after computeChangeSet)
+    if (!currentNodeNames.has(nodeId)) continue;
     newNodes.set(nodeId, record);
-  }
-
-  // Transfer trust for renames: metadata-only modifications where the new
-  // identity has no trust record but an old record with matching content hash
-  // exists in the original state (FR-007).
-  for (const mod of changeSet.modified) {
-    if (mod.changes.length === 1 && mod.changes[0] === 'metadata-only' && !newNodes.has(mod.node)) {
-      const graphNode = graph.nodes.get(mod.node);
-      if (!graphNode) continue;
-      const currentHash = computeContentHash(graphNode, graph.ast);
-      // Find a stale record (node no longer in graph) with matching hash
-      for (const [oldId, oldRecord] of state.nodes) {
-        if (!currentNodeNames.has(oldId) && oldRecord.contentHash === currentHash) {
-          newNodes.set(mod.node, oldRecord);
-          break;
-        }
-      }
-    }
   }
 
   return { ...state, nodes: newNodes };

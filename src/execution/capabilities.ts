@@ -10,28 +10,17 @@
  */
 
 import type { AvailableCapabilities } from '../types/diagnostic.js';
-import type {
-  DetectedCapabilities,
-  ExplicitCredentials,
-  ResolvedCredentials,
-} from './types.js';
-import {
-  ExecutionInfrastructureError,
-  ExecutionPreconditionError,
-} from './errors.js';
-import { resolveCredentials } from './rest-client.js';
+import { ExecutionInfrastructureError, ExecutionPreconditionError } from './errors.js';
 import type { McpToolCaller } from './mcp-client.js';
+import { resolveCredentials } from './rest-client.js';
+import type { DetectedCapabilities, ExplicitCredentials, ResolvedCredentials } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Capability detection (T021)
 // ---------------------------------------------------------------------------
 
 /** Known MCP tool names used by the execution subsystem. */
-const EXECUTION_MCP_TOOLS = [
-  'test_workflow',
-  'get_execution',
-  'prepare_test_pin_data',
-] as const;
+const EXECUTION_MCP_TOOLS = ['test_workflow', 'get_execution', 'prepare_test_pin_data'] as const;
 
 /**
  * Probe the execution environment and report available capabilities.
@@ -42,18 +31,28 @@ const EXECUTION_MCP_TOOLS = [
  *   3. Discover MCP tools if callTool provided
  *   4. Optionally check workflow existence
  */
-export async function detectCapabilities(
-  options?: {
-    explicit?: ExplicitCredentials;
-    workflowId?: string;
-    callTool?: McpToolCaller;
-  },
-): Promise<DetectedCapabilities> {
+export async function detectCapabilities(options?: {
+  explicit?: ExplicitCredentials;
+  workflowId?: string;
+  callTool?: McpToolCaller;
+}): Promise<DetectedCapabilities> {
   // Step 1: Resolve credentials
-  const credentials = await resolveCredentials(options?.explicit);
+  let credentials: ResolvedCredentials | null = null;
+  try {
+    credentials = await resolveCredentials(options?.explicit);
+  } catch {
+    // No credentials available — REST is not available
+  }
 
   // Step 2: Probe REST availability
-  const restAvailable = await probeRest(credentials);
+  let restAvailable = false;
+  if (credentials) {
+    try {
+      restAvailable = await probeRest(credentials);
+    } catch {
+      // Network/auth errors → REST unavailable, degrade to static-only
+    }
+  }
 
   // Step 3: Discover MCP tools
   let mcpAvailable = false;
@@ -66,7 +65,7 @@ export async function detectCapabilities(
   }
 
   // Step 4: Check workflow if requested
-  if (options?.workflowId && restAvailable) {
+  if (options?.workflowId && restAvailable && credentials) {
     await checkWorkflow(options.workflowId, credentials);
   }
 
@@ -91,9 +90,7 @@ export async function detectCapabilities(
  * Map DetectedCapabilities (execution-internal) to AvailableCapabilities
  * (shared diagnostic type) for use in DiagnosticSummary.
  */
-export function toAvailableCapabilities(
-  detected: DetectedCapabilities,
-): AvailableCapabilities {
+export function toAvailableCapabilities(detected: DetectedCapabilities): AvailableCapabilities {
   return {
     staticAnalysis: true,
     restApi: detected.restAvailable,
@@ -118,10 +115,7 @@ async function probeRest(credentials: ResolvedCredentials): Promise<boolean> {
       },
     });
   } catch {
-    throw new ExecutionInfrastructureError(
-      'unreachable',
-      `n8n unreachable at ${credentials.host}`,
-    );
+    throw new ExecutionInfrastructureError('unreachable', `n8n unreachable at ${credentials.host}`);
   }
 
   if (response.status === 401 || response.status === 403) {
@@ -135,16 +129,30 @@ async function probeRest(credentials: ResolvedCredentials): Promise<boolean> {
 }
 
 /**
- * Discover which execution-related MCP tools are available by probing each.
+ * Discover which execution-related MCP tools are available via tools/list.
  *
- * Calls each tool with minimal/empty args. If the tool exists, the MCP server
- * will return a result (possibly an error result for invalid args, but that
- * still proves the tool is registered). A thrown error means the tool is
- * not available.
+ * Calls `tools/list` to get the full tool listing, then filters for known
+ * execution-related tools. Falls back to per-tool probing if `tools/list`
+ * is not available.
  */
 async function discoverMcpTools(callTool: McpToolCaller): Promise<string[]> {
-  const discovered: string[] = [];
+  // Try tools/list first for efficient discovery
+  try {
+    const listResult = await callTool('tools/list', {});
+    if (Array.isArray(listResult)) {
+      const toolNames = new Set(
+        listResult.map((t: unknown) =>
+          typeof t === 'object' && t !== null && 'name' in t ? (t as { name: string }).name : '',
+        ),
+      );
+      return EXECUTION_MCP_TOOLS.filter((name) => toolNames.has(name));
+    }
+  } catch {
+    // tools/list not available — fall back to per-tool probing
+  }
 
+  // Fallback: probe each tool individually
+  const discovered: string[] = [];
   for (const toolName of EXECUTION_MCP_TOOLS) {
     try {
       await callTool(toolName, {});
@@ -153,15 +161,11 @@ async function discoverMcpTools(callTool: McpToolCaller): Promise<string[]> {
       // Tool not available — skip
     }
   }
-
   return discovered;
 }
 
 /** Check workflow existence via REST. */
-async function checkWorkflow(
-  workflowId: string,
-  credentials: ResolvedCredentials,
-): Promise<void> {
+async function checkWorkflow(workflowId: string, credentials: ResolvedCredentials): Promise<void> {
   const host = credentials.host.replace(/\/+$/, '');
 
   let response: Response;

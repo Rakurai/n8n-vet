@@ -227,6 +227,43 @@ describe('computeChangeSet', () => {
     expect(connectionMods.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('detects incoming (backward) edge change on content-unchanged node', async () => {
+    const previous = await loadLinearSimple();
+    // Add an extra connection: scheduleTrigger → setFields (new incoming edge for setFields)
+    // Must update both forward and backward adjacency for consistency
+    const forward = new Map(previous.forward);
+    const triggerForwardEdges = [...(forward.get('scheduleTrigger') ?? [])];
+    triggerForwardEdges.push({
+      from: 'scheduleTrigger',
+      fromOutput: 0,
+      isError: false,
+      to: 'setFields',
+      toInput: 1,
+    });
+    forward.set('scheduleTrigger', triggerForwardEdges);
+
+    const backward = new Map(previous.backward);
+    const setFieldsBackEdges = [...(backward.get('setFields') ?? [])];
+    setFieldsBackEdges.push({
+      from: 'scheduleTrigger',
+      fromOutput: 0,
+      isError: false,
+      to: 'setFields',
+      toInput: 1,
+    });
+    backward.set('setFields', setFieldsBackEdges);
+    const current: WorkflowGraph = { ...previous, forward, backward };
+
+    const changeSet = computeChangeSet(previous, current);
+
+    // setFields should be flagged as modified with connection change
+    // because it now has a new incoming edge
+    const connectionMods = changeSet.modified.filter((m) =>
+      m.node === 'setFields' && m.changes.includes('connection'),
+    );
+    expect(connectionMods).toHaveLength(1);
+  });
+
   it('detects added node', async () => {
     const previous = await loadLinearSimple();
     const newNode: GraphNode = {
@@ -291,7 +328,7 @@ describe('computeChangeSet', () => {
       (m) => m.node === 'renamedHttp' || m.node === 'httpRequest',
     );
     expect(renameMod).toBeDefined();
-    expect(renameMod!.changes).toContain('metadata-only');
+    expect(renameMod!.changes).toContain('rename');
   });
 
   it('classifies multiple simultaneous change kinds on single node', async () => {

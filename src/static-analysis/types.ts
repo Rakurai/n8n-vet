@@ -2,8 +2,8 @@
  * Internal types for the static analysis subsystem — findings, expression references, and analysis results.
  */
 
-import type { NodeIdentity } from '../types/identity.js';
 import type { WorkflowGraph } from '../types/graph.js';
+import type { NodeIdentity } from '../types/identity.js';
 
 // ---------------------------------------------------------------------------
 // Expression references
@@ -71,13 +71,55 @@ interface OpaqueBoundaryContext {
 
 /** A single diagnostic produced by static analysis, discriminated on `kind`. */
 export type StaticFinding =
-  | { node: NodeIdentity; severity: 'error' | 'warning'; message: string; kind: 'data-loss'; context: DataLossContext }
-  | { node: NodeIdentity; severity: 'error' | 'warning'; message: string; kind: 'broken-reference'; context: BrokenReferenceContext }
-  | { node: NodeIdentity; severity: 'error' | 'warning'; message: string; kind: 'invalid-parameter'; context: InvalidParameterContext }
-  | { node: NodeIdentity; severity: 'error' | 'warning'; message: string; kind: 'unresolvable-expression'; context: UnresolvableExpressionContext }
-  | { node: NodeIdentity; severity: 'error' | 'warning'; message: string; kind: 'schema-mismatch'; context: SchemaMismatchContext }
-  | { node: NodeIdentity; severity: 'error' | 'warning'; message: string; kind: 'missing-credentials'; context: MissingCredentialsContext }
-  | { node: NodeIdentity; severity: 'error' | 'warning'; message: string; kind: 'opaque-boundary'; context: OpaqueBoundaryContext };
+  | {
+      node: NodeIdentity;
+      severity: 'error' | 'warning';
+      message: string;
+      kind: 'data-loss';
+      context: DataLossContext;
+    }
+  | {
+      node: NodeIdentity;
+      severity: 'error' | 'warning';
+      message: string;
+      kind: 'broken-reference';
+      context: BrokenReferenceContext;
+    }
+  | {
+      node: NodeIdentity;
+      severity: 'error' | 'warning';
+      message: string;
+      kind: 'invalid-parameter';
+      context: InvalidParameterContext;
+    }
+  | {
+      node: NodeIdentity;
+      severity: 'error' | 'warning';
+      message: string;
+      kind: 'unresolvable-expression';
+      context: UnresolvableExpressionContext;
+    }
+  | {
+      node: NodeIdentity;
+      severity: 'error' | 'warning';
+      message: string;
+      kind: 'schema-mismatch';
+      context: SchemaMismatchContext;
+    }
+  | {
+      node: NodeIdentity;
+      severity: 'error' | 'warning';
+      message: string;
+      kind: 'missing-credentials';
+      context: MissingCredentialsContext;
+    }
+  | {
+      node: NodeIdentity;
+      severity: 'error' | 'warning';
+      message: string;
+      kind: 'opaque-boundary';
+      context: OpaqueBoundaryContext;
+    };
 
 // ---------------------------------------------------------------------------
 // Top-level analysis result

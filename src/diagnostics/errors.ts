@@ -5,15 +5,15 @@
  * the unified `DiagnosticError` type, then orders them for the final summary.
  */
 
-import type { NodeIdentity } from '../types/identity.js';
-import type { DiagnosticError, ErrorClassification } from '../types/diagnostic.js';
 import type { StaticFinding } from '../static-analysis/types.js';
+import type { DiagnosticError, ErrorClassification } from '../types/diagnostic.js';
+import type { NodeIdentity } from '../types/identity.js';
 import type {
+  ClassifiedError,
   ExecutionData,
   ExecutionErrorData,
-  ClassifiedError,
-  StaticKindClassificationMap,
   StaticFindingErrorKind,
+  StaticKindClassificationMap,
 } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -46,8 +46,7 @@ export function classifyStaticFindings(findings: StaticFinding[]): ClassifiedErr
 
     if (finding.kind === 'opaque-boundary') {
       throw new DiagnosticClassificationError(
-        `Unexpected error-severity opaque-boundary finding on node "${finding.node}". ` +
-          'opaque-boundary findings must have severity "warning".',
+        `Unexpected error-severity opaque-boundary finding on node "${finding.node}". opaque-boundary findings must have severity "warning".`,
       );
     }
 
@@ -72,7 +71,9 @@ function buildStaticDiagnosticError(
 
   switch (classification) {
     case 'wiring': {
-      let wiringCtx: DiagnosticError & { classification: 'wiring' } extends { context: infer C } ? C : never;
+      let wiringCtx: DiagnosticError & { classification: 'wiring' } extends { context: infer C }
+        ? C
+        : never;
       switch (finding.kind) {
         case 'data-loss':
           wiringCtx = {
@@ -107,9 +108,10 @@ function buildStaticDiagnosticError(
       };
     }
     case 'expression': {
-      const exprCtx = finding.kind === 'unresolvable-expression'
-        ? { expression: finding.context.expression, parameter: finding.context.parameter }
-        : {};
+      const exprCtx =
+        finding.kind === 'unresolvable-expression'
+          ? { expression: finding.context.expression, parameter: finding.context.parameter }
+          : {};
       return {
         ...base,
         classification: 'expression',
@@ -117,9 +119,10 @@ function buildStaticDiagnosticError(
       };
     }
     case 'credentials': {
-      const credCtx = finding.kind === 'missing-credentials'
-        ? { credentialType: finding.context.credentialType }
-        : {};
+      const credCtx =
+        finding.kind === 'missing-credentials'
+          ? { credentialType: finding.context.credentialType }
+          : {};
       return {
         ...base,
         classification: 'credentials',
@@ -147,8 +150,10 @@ function buildStaticDiagnosticError(
 export function classifyExecutionErrors(data: ExecutionData): ClassifiedError[] {
   const result: ClassifiedError[] = [];
 
-  for (const [node, nodeResult] of data.nodeResults) {
-    if (nodeResult.error === null) continue;
+  for (const [node, nodeResults] of data.nodeResults) {
+    // Select the last execution attempt per node (most relevant for diagnostics)
+    const nodeResult = nodeResults[nodeResults.length - 1];
+    if (!nodeResult || nodeResult.error === null) continue;
 
     const classification = classifyExecutionError(nodeResult.error);
     const error = buildExecutionDiagnosticError(nodeResult.error, node, classification);
@@ -196,9 +201,11 @@ function classifyByContextKind(error: ExecutionErrorData): ErrorClassification {
 }
 
 function classifyApiError(error: ExecutionErrorData & { contextKind: 'api' }): ErrorClassification {
-  if (error.httpCode === undefined) return 'external-service';
+  const httpCodeStr = error.context.httpCode;
+  if (!httpCodeStr) return 'external-service';
 
-  const code = error.httpCode;
+  const code = Number.parseInt(httpCodeStr, 10);
+  if (Number.isNaN(code)) return 'external-service';
   if (code === 401 || code === 403) return 'credentials';
   if (code >= 400 && code < 500) return 'wiring';
   if (code >= 500) return 'external-service';
@@ -225,25 +232,22 @@ function buildExecutionDiagnosticError(
       return {
         ...base,
         classification: 'expression',
-        context: error.contextKind === 'expression'
-          ? buildExpressionErrorContext(error)
-          : {},
+        context: error.contextKind === 'expression' ? buildExpressionErrorContext(error) : {},
       };
     case 'credentials':
       return {
         ...base,
         classification: 'credentials',
-        context: error.contextKind === 'api' && error.httpCode !== undefined
-          ? { httpCode: String(error.httpCode) }
-          : {},
+        context:
+          error.contextKind === 'api' && error.context.httpCode
+            ? { httpCode: error.context.httpCode }
+            : {},
       };
     case 'external-service':
       return {
         ...base,
         classification: 'external-service',
-        context: error.contextKind === 'api'
-          ? buildExternalServiceContext(error)
-          : {},
+        context: error.contextKind === 'api' ? buildExternalServiceContext(error) : {},
       };
     case 'platform':
       return { ...base, classification: 'platform', context: {} };
@@ -251,9 +255,7 @@ function buildExecutionDiagnosticError(
       return {
         ...base,
         classification: 'cancelled',
-        context: error.contextKind === 'cancellation' && error.reason !== undefined
-          ? { reason: error.reason }
-          : {},
+        context: error.contextKind === 'cancellation' ? { reason: error.context.reason } : {},
       };
     case 'unknown':
       return { ...base, classification: 'unknown', context: {} };
@@ -290,22 +292,23 @@ export function orderErrors(errors: ClassifiedError[]): DiagnosticError[] {
 // Context builders for execution errors (exactOptionalPropertyTypes-safe)
 // ---------------------------------------------------------------------------
 
-function buildExpressionErrorContext(
-  error: ExecutionErrorData & { contextKind: 'expression' },
-): { expression?: string; parameter?: string; itemIndex?: number } {
-  const ctx: { expression?: string; parameter?: string; itemIndex?: number } = {};
-  if (error.expression !== undefined) ctx.expression = error.expression;
-  if (error.parameter !== undefined) ctx.parameter = error.parameter;
-  if (error.itemIndex !== undefined) ctx.itemIndex = error.itemIndex;
+function buildExpressionErrorContext(error: ExecutionErrorData & { contextKind: 'expression' }): {
+  expression?: string;
+  parameter?: string;
+} {
+  const ctx: { expression?: string; parameter?: string } = {};
+  if (error.context.expressionType !== undefined) ctx.expression = error.context.expressionType;
+  if (error.context.parameter !== undefined) ctx.parameter = error.context.parameter;
   return ctx;
 }
 
-function buildExternalServiceContext(
-  error: ExecutionErrorData & { contextKind: 'api' },
-): { httpCode?: string; errorCode?: string } {
+function buildExternalServiceContext(error: ExecutionErrorData & { contextKind: 'api' }): {
+  httpCode?: string;
+  errorCode?: string;
+} {
   const ctx: { httpCode?: string; errorCode?: string } = {};
-  if (error.httpCode !== undefined) ctx.httpCode = String(error.httpCode);
-  if (error.errorCode !== undefined) ctx.errorCode = error.errorCode;
+  if (error.context.httpCode) ctx.httpCode = error.context.httpCode;
+  if (error.context.errorCode !== undefined) ctx.errorCode = error.context.errorCode;
   return ctx;
 }
 

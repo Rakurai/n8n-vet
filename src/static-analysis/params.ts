@@ -4,10 +4,10 @@
  * and undefined credential types.
  */
 
-import type { NodeIdentity } from '../types/identity.js';
 import type { WorkflowGraph } from '../types/graph.js';
-import type { StaticFinding } from './types.js';
+import type { NodeIdentity } from '../types/identity.js';
 import type { NodeSchemaProvider } from './schemas.js';
+import type { StaticFinding } from './types.js';
 
 export function validateNodeParams(
   graph: WorkflowGraph,
@@ -25,6 +25,8 @@ export function validateNodeParams(
     if (!graphNode) {
       continue;
     }
+    // Skip disabled nodes
+    if (graphNode.disabled) continue;
 
     const schema = schemaProvider.getNodeSchema(graphNode.type);
     if (!schema?.properties) {

@@ -104,72 +104,8 @@ function linearGraph(): WorkflowGraph {
 }
 
 describe('selectPaths', () => {
-  describe('4-tier ranking', () => {
-    it('prefers non-error output paths (tier 1)', () => {
-      const graph = branchingGraph();
-      // Add an error edge from A to a new node F
-      const nodes = new Map(graph.nodes);
-      nodes.set('F', makeNode('F'));
-      const forward = new Map(graph.forward);
-      forward.get('A')!.push(makeEdge('A', 'F', { isError: true, fromOutput: 2 }));
-      forward.set('F', []);
-      const backward = new Map(graph.backward);
-      backward.set('F', [makeEdge('A', 'F', { isError: true, fromOutput: 2 })]);
-
-      const modGraph = { ...graph, nodes, forward, backward };
-
-      const slice: SliceDefinition = {
-        nodes: new Set(['A', 'B', 'C', 'F'] as NodeIdentity[]),
-        seedNodes: new Set(['B', 'F'] as NodeIdentity[]),
-        entryPoints: ['A' as NodeIdentity],
-        exitPoints: ['C' as NodeIdentity, 'F' as NodeIdentity],
-      };
-
-      const changeSet: NodeChangeSet = {
-        added: [],
-        removed: [],
-        modified: [
-          { node: 'B' as NodeIdentity, changes: ['parameter'] },
-          { node: 'F' as NodeIdentity, changes: ['parameter'] },
-        ],
-        unchanged: [],
-      };
-
-      const paths = selectPaths(slice, modGraph, changeSet, emptyTrustState());
-
-      expect(paths.length).toBeGreaterThanOrEqual(1);
-      // First selected path should be non-error
-      expect(paths[0]!.usesErrorOutput).toBe(false);
-    });
-
-    it('prefers output index 0 on branching nodes (tier 2)', () => {
-      const graph = branchingGraph();
-
-      const slice: SliceDefinition = {
-        nodes: new Set(['A', 'B', 'C', 'D', 'E'] as NodeIdentity[]),
-        seedNodes: new Set(['B', 'D'] as NodeIdentity[]),
-        entryPoints: ['A' as NodeIdentity],
-        exitPoints: ['C' as NodeIdentity, 'E' as NodeIdentity],
-      };
-
-      const changeSet: NodeChangeSet = {
-        added: [],
-        removed: [],
-        modified: [
-          { node: 'B' as NodeIdentity, changes: ['parameter'] },
-          { node: 'D' as NodeIdentity, changes: ['parameter'] },
-        ],
-        unchanged: [],
-      };
-
-      const paths = selectPaths(slice, graph, changeSet, emptyTrustState());
-
-      expect(paths.length).toBeGreaterThanOrEqual(1);
-      // First path should use output 0 (A→B→C)
-      expect(paths[0]!.edges.every((e) => e.fromOutput === 0)).toBe(true);
-    });
-
-    it('prefers more changed nodes (tier 3)', () => {
+  describe('STRATEGY.md-aligned scoring', () => {
+    it('prefers paths covering changed nodes over empty paths', () => {
       const graph = branchingGraph();
 
       const slice: SliceDefinition = {
@@ -194,6 +130,67 @@ describe('selectPaths', () => {
 
       expect(paths[0]!.nodes.map(String)).toContain('B');
       expect(paths[0]!.nodes.map(String)).toContain('C');
+    });
+
+    it('gives high weight to changed opaque/shape-replacing nodes', () => {
+      // Build graph where one branch has an opaque node and the other has shape-preserving
+      const nodes = new Map<string, GraphNode>([
+        ['A', makeNode('A')],
+        ['B', { ...makeNode('B'), classification: 'shape-opaque' as const }],
+        ['C', makeNode('C')],
+        ['D', makeNode('D')],
+        ['E', makeNode('E')],
+      ]);
+
+      const forward = new Map<string, Edge[]>([
+        ['A', [makeEdge('A', 'B'), makeEdge('A', 'D', { fromOutput: 1 })]],
+        ['B', [makeEdge('B', 'C')]],
+        ['C', []],
+        ['D', [makeEdge('D', 'E')]],
+        ['E', []],
+      ]);
+
+      const backward = new Map<string, Edge[]>([
+        ['A', []],
+        ['B', [makeEdge('A', 'B')]],
+        ['C', [makeEdge('B', 'C')]],
+        ['D', [makeEdge('A', 'D', { fromOutput: 1 })]],
+        ['E', [makeEdge('D', 'E')]],
+      ]);
+
+      const displayNameIndex = new Map<string, string>();
+      for (const [name] of nodes) displayNameIndex.set(name, name);
+
+      const graph: WorkflowGraph = {
+        nodes,
+        forward,
+        backward,
+        displayNameIndex,
+        ast: { nodes: [], connections: [] } as unknown as WorkflowAST,
+      };
+
+      const slice: SliceDefinition = {
+        nodes: new Set(['A', 'B', 'C', 'D', 'E'] as NodeIdentity[]),
+        seedNodes: new Set(['B', 'D'] as NodeIdentity[]),
+        entryPoints: ['A' as NodeIdentity],
+        exitPoints: ['C' as NodeIdentity, 'E' as NodeIdentity],
+      };
+
+      // Both B (opaque) and D (preserving) changed
+      const changeSet: NodeChangeSet = {
+        added: [],
+        removed: [],
+        modified: [
+          { node: 'B' as NodeIdentity, changes: ['parameter'] },
+          { node: 'D' as NodeIdentity, changes: ['parameter'] },
+        ],
+        unchanged: [],
+      };
+
+      const paths = selectPaths(slice, graph, changeSet, emptyTrustState());
+
+      // Path through opaque node B should rank first
+      expect(paths[0]!.nodes.map(String)).toContain('B');
     });
 
     it('produces deterministic output for same inputs', () => {

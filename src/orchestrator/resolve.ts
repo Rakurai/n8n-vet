@@ -8,6 +8,8 @@
  * - `workflow`: all nodes in the graph
  */
 
+import { computeContentHash } from '../trust/hash.js';
+import { isTrusted as isTrustedCanonical } from '../trust/trust.js';
 import type { ResolvedTarget } from '../types/diagnostic.js';
 import type { WorkflowGraph } from '../types/graph.js';
 import type { NodeIdentity } from '../types/identity.js';
@@ -34,7 +36,7 @@ export function resolveTarget(
 ): ResolveResult {
   switch (target.kind) {
     case 'nodes':
-      return resolveNodes(target.nodes, graph);
+      return resolveNodes(target.nodes, graph, trustState);
     case 'changed':
       return resolveChanged(graph, changeSet, trustState);
     case 'workflow':
@@ -47,6 +49,7 @@ export function resolveTarget(
 function resolveNodes(
   names: NodeIdentity[],
   graph: WorkflowGraph,
+  trustState: TrustState,
 ): ResolveResult {
   if (names.length === 0) {
     return { ok: false, errorMessage: 'Empty nodes list in validation target' };
@@ -54,8 +57,8 @@ function resolveNodes(
 
   const missing: string[] = [];
   for (const name of names) {
-    if (!graph.nodes.has(name as string)) {
-      missing.push(name as string);
+    if (!graph.nodes.has(name)) {
+      missing.push(name);
     }
   }
 
@@ -66,16 +69,16 @@ function resolveNodes(
   const seedNodes = new Set(names);
   const sliceNodes = new Set(names);
 
-  // Forward-propagate to exits
+  // Forward-propagate to exits (stops at trust boundaries)
   const exitPoints: NodeIdentity[] = [];
   for (const name of names) {
-    propagateForward(name as string, graph, sliceNodes, exitPoints);
+    propagateForward(name, graph, sliceNodes, exitPoints, trustState);
   }
 
-  // Backward-walk to entry points (triggers or graph roots)
+  // Backward-walk to entry points (triggers, graph roots, or trust boundaries)
   const entryPoints: NodeIdentity[] = [];
   for (const name of names) {
-    propagateBackward(name as string, graph, sliceNodes, entryPoints);
+    propagateBackward(name, graph, sliceNodes, entryPoints, trustState);
   }
 
   // Deduplicate entry/exit
@@ -109,10 +112,7 @@ function resolveChanged(
 
   if (changeSet !== null) {
     // Precise detection from snapshot diff
-    seedNames = [
-      ...changeSet.added,
-      ...changeSet.modified.map((m) => m.node),
-    ];
+    seedNames = [...changeSet.added, ...changeSet.modified.map((m) => m.node)];
   } else {
     // Approximate detection from trust state content hashes
     seedNames = approximateChanges(graph, trustState);
@@ -141,12 +141,12 @@ function resolveChanged(
 
   const exitPoints: NodeIdentity[] = [];
   for (const name of seedNames) {
-    propagateForward(name as string, graph, sliceNodes, exitPoints, trustState);
+    propagateForward(name, graph, sliceNodes, exitPoints, trustState);
   }
 
   const entryPoints: NodeIdentity[] = [];
   for (const name of seedNames) {
-    propagateBackward(name as string, graph, sliceNodes, entryPoints, trustState);
+    propagateBackward(name, graph, sliceNodes, entryPoints, trustState);
   }
 
   const uniqueEntries = [...new Set(entryPoints)];
@@ -173,22 +173,18 @@ function resolveChanged(
  * Compare graph nodes against trust state content hashes.
  * Nodes not in trust state, or with different hashes, are considered changed.
  */
-function approximateChanges(
-  graph: WorkflowGraph,
-  trustState: TrustState,
-): NodeIdentity[] {
+function approximateChanges(graph: WorkflowGraph, trustState: TrustState): NodeIdentity[] {
   if (trustState.nodes.size === 0) {
     // No trust at all — everything is "changed"
-    return [...graph.nodes.keys()] as NodeIdentity[];
+    return [...graph.nodes.keys()];
   }
 
   const changed: NodeIdentity[] = [];
   for (const [name] of graph.nodes) {
-    const nodeId = name as NodeIdentity;
-    const trustRecord = trustState.nodes.get(nodeId);
+    const trustRecord = trustState.nodes.get(name);
     if (!trustRecord) {
       // New or unknown node
-      changed.push(nodeId);
+      changed.push(name);
     }
     // Note: without a snapshot we can't recompute content hashes,
     // so we trust the trust state records. Only truly new nodes are flagged.
@@ -200,7 +196,7 @@ function approximateChanges(
 // ── workflow ──────────────────────────────────────────────────────
 
 function resolveWorkflow(graph: WorkflowGraph): ResolveResult {
-  const allNodes: NodeIdentity[] = [...graph.nodes.keys()] as NodeIdentity[];
+  const allNodes: NodeIdentity[] = [...graph.nodes.keys()];
 
   // Entry points: nodes with no incoming edges (triggers/roots)
   const entryPoints: NodeIdentity[] = [];
@@ -208,11 +204,11 @@ function resolveWorkflow(graph: WorkflowGraph): ResolveResult {
   const exitPoints: NodeIdentity[] = [];
 
   for (const name of allNodes) {
-    const incoming = graph.backward.get(name as string);
+    const incoming = graph.backward.get(name);
     if (!incoming || incoming.length === 0) {
       entryPoints.push(name);
     }
-    const outgoing = graph.forward.get(name as string);
+    const outgoing = graph.forward.get(name);
     if (!outgoing || outgoing.length === 0) {
       exitPoints.push(name);
     }
@@ -238,35 +234,36 @@ function resolveWorkflow(graph: WorkflowGraph): ResolveResult {
 
 /** Forward-propagate from a node through graph.forward until exit or trusted boundary. */
 function propagateForward(
-  startName: string,
+  startName: NodeIdentity,
   graph: WorkflowGraph,
   sliceNodes: Set<NodeIdentity>,
   exitPoints: NodeIdentity[],
   trustState?: TrustState,
 ): void {
-  const visited = new Set<string>();
-  const stack = [startName];
+  const visited = new Set<NodeIdentity>();
+  const stack: NodeIdentity[] = [startName];
 
   while (stack.length > 0) {
-    const current = stack.pop()!;
+    const current = stack.pop();
+    if (current === undefined) break;
     if (visited.has(current)) continue;
     visited.add(current);
 
     const edges = graph.forward.get(current);
     if (!edges || edges.length === 0) {
-      exitPoints.push(current as NodeIdentity);
+      exitPoints.push(current);
       continue;
     }
 
     for (const edge of edges) {
       const downstream = edge.to;
       // Stop at trusted boundaries (for change-driven slicing)
-      if (trustState && isTrusted(downstream as NodeIdentity, trustState)) {
-        exitPoints.push(downstream as NodeIdentity);
-        sliceNodes.add(downstream as NodeIdentity);
+      if (trustState && isTrusted(downstream, trustState, graph)) {
+        exitPoints.push(downstream);
+        sliceNodes.add(downstream);
         continue;
       }
-      sliceNodes.add(downstream as NodeIdentity);
+      sliceNodes.add(downstream);
       stack.push(downstream);
     }
   }
@@ -274,40 +271,44 @@ function propagateForward(
 
 /** Backward-walk from a node through graph.backward to triggers or trusted boundaries. */
 function propagateBackward(
-  startName: string,
+  startName: NodeIdentity,
   graph: WorkflowGraph,
   sliceNodes: Set<NodeIdentity>,
   entryPoints: NodeIdentity[],
   trustState?: TrustState,
 ): void {
-  const visited = new Set<string>();
-  const stack = [startName];
+  const visited = new Set<NodeIdentity>();
+  const stack: NodeIdentity[] = [startName];
 
   while (stack.length > 0) {
-    const current = stack.pop()!;
+    const current = stack.pop();
+    if (current === undefined) break;
     if (visited.has(current)) continue;
     visited.add(current);
 
     const edges = graph.backward.get(current);
     if (!edges || edges.length === 0) {
-      entryPoints.push(current as NodeIdentity);
+      entryPoints.push(current);
       continue;
     }
 
     for (const edge of edges) {
       const upstream = edge.from;
       // Stop at trusted boundaries
-      if (trustState && isTrusted(upstream as NodeIdentity, trustState)) {
-        entryPoints.push(upstream as NodeIdentity);
-        sliceNodes.add(upstream as NodeIdentity);
+      if (trustState && isTrusted(upstream, trustState, graph)) {
+        entryPoints.push(upstream);
+        sliceNodes.add(upstream);
         continue;
       }
-      sliceNodes.add(upstream as NodeIdentity);
+      sliceNodes.add(upstream);
       stack.push(upstream);
     }
   }
 }
 
-function isTrusted(nodeId: NodeIdentity, trustState: TrustState): boolean {
-  return trustState.nodes.has(nodeId);
+function isTrusted(nodeId: NodeIdentity, trustState: TrustState, graph: WorkflowGraph): boolean {
+  const node = graph.nodes.get(nodeId);
+  if (!node) return false;
+  const hash = computeContentHash(node, graph.ast);
+  return isTrustedCanonical(trustState, nodeId, hash);
 }

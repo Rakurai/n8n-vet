@@ -15,10 +15,11 @@
 import type { NodeAST } from '@n8n-as-code/transformer';
 import type { NodeClassification } from '../types/graph.js';
 import {
+  HTTP_REQUEST_TYPE,
+  MERGE_NODE_TYPE,
+  SET_NODE_TYPE,
   SHAPE_OPAQUE_TYPES,
   SHAPE_PRESERVING_TYPES,
-  SET_NODE_TYPE,
-  HTTP_REQUEST_TYPE,
 } from './node-sets.js';
 
 /**
@@ -35,6 +36,11 @@ export function classifyNode(node: NodeAST): NodeClassification {
   // 2. Set node special handling
   if (node.type === SET_NODE_TYPE) {
     return classifySetNode(node.parameters);
+  }
+
+  // 2b. Merge node mode-aware classification
+  if (node.type === MERGE_NODE_TYPE) {
+    return classifyMergeNode(node.parameters);
   }
 
   // 3. Explicit shape-preserving set
@@ -65,8 +71,8 @@ export function classifyNode(node: NodeAST): NodeClassification {
  * Classify a Set node based on its `options.include` parameter value.
  */
 function classifySetNode(parameters: Record<string, unknown>): NodeClassification {
-  const options = parameters['options'] as Record<string, unknown> | undefined;
-  const include = options?.['include'] as string | undefined;
+  const options = parameters.options as Record<string, unknown> | undefined;
+  const include = options?.include as string | undefined;
 
   if (include === undefined || include === 'all') {
     return 'shape-augmenting';
@@ -74,4 +80,31 @@ function classifySetNode(parameters: Record<string, unknown>): NodeClassificatio
 
   // 'selected', 'none', 'except' → shape-replacing
   return 'shape-replacing';
+}
+
+/**
+ * Classify a Merge node based on its `mode` parameter.
+ *
+ * Modes:
+ * - append, chooseBranch → shape-preserving (items pass through as-is)
+ * - combineByPosition, combineByFields, multiplex → shape-augmenting (merges fields)
+ * - combineBySql → shape-replacing (SQL query creates new shape)
+ */
+function classifyMergeNode(parameters: Record<string, unknown>): NodeClassification {
+  const mode = parameters.mode as string | undefined;
+
+  switch (mode) {
+    case 'append':
+    case 'chooseBranch':
+      return 'shape-preserving';
+    case 'combineByPosition':
+    case 'combineByFields':
+    case 'multiplex':
+      return 'shape-augmenting';
+    case 'combineBySql':
+      return 'shape-replacing';
+    default:
+      // Unknown or unset mode — default to shape-augmenting (safe assumption)
+      return 'shape-augmenting';
+  }
 }

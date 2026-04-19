@@ -4,7 +4,7 @@
  * sub-classified change kinds), or unchanged.
  */
 
-import type { GraphNode, WorkflowGraph } from '../types/graph.js';
+import type { Edge, GraphNode, WorkflowGraph } from '../types/graph.js';
 import type { NodeIdentity } from '../types/identity.js';
 import type { ChangeKind, NodeChangeSet, NodeModification } from '../types/trust.js';
 import { computeConnectionsHash, computeContentHash, computeWorkflowHash } from './hash.js';
@@ -19,7 +19,7 @@ import { computeConnectionsHash, computeContentHash, computeWorkflowHash } from 
 export function computeChangeSet(previous: WorkflowGraph, current: WorkflowGraph): NodeChangeSet {
   // Workflow-level quick check (research R6)
   if (computeWorkflowHash(previous) === computeWorkflowHash(current)) {
-    const unchanged = [...current.nodes.keys()] as NodeIdentity[];
+    const unchanged = [...current.nodes.keys()];
     return { added: [], removed: [], modified: [], unchanged };
   }
 
@@ -33,10 +33,10 @@ export function computeChangeSet(previous: WorkflowGraph, current: WorkflowGraph
 
   // Identify added and removed
   for (const name of currNames) {
-    if (!prevNames.has(name)) added.push(name as NodeIdentity);
+    if (!prevNames.has(name)) added.push(name);
   }
   for (const name of prevNames) {
-    if (!currNames.has(name)) removed.push(name as NodeIdentity);
+    if (!currNames.has(name)) removed.push(name);
   }
 
   // Classify common nodes
@@ -68,14 +68,14 @@ export function computeChangeSet(previous: WorkflowGraph, current: WorkflowGraph
       }
 
       if (changes.length > 0) {
-        modified.push({ node: name as NodeIdentity, changes });
+        modified.push({ node: name, changes });
       } else {
-        unchanged.push(name as NodeIdentity);
+        unchanged.push(name);
       }
     } else {
       // Content changed — sub-classify
       const changes = classifyChanges(prevNode, currNode, previous, current);
-      modified.push({ node: name as NodeIdentity, changes });
+      modified.push({ node: name, changes });
     }
   }
 
@@ -89,7 +89,7 @@ export function computeChangeSet(previous: WorkflowGraph, current: WorkflowGraph
 function nodePositionChanged(
   previous: WorkflowGraph,
   current: WorkflowGraph,
-  nodeName: string,
+  nodeName: NodeIdentity,
 ): boolean {
   const prevAst = previous.ast.nodes.find((n) => n.propertyName === nodeName);
   const currAst = current.ast.nodes.find((n) => n.propertyName === nodeName);
@@ -105,14 +105,18 @@ function nodePositionChanged(
 function nodeEdgesChanged(
   previous: WorkflowGraph,
   current: WorkflowGraph,
-  nodeName: string,
+  nodeName: NodeIdentity,
 ): boolean {
-  const prevEdges = previous.forward.get(nodeName) ?? [];
-  const currEdges = current.forward.get(nodeName) ?? [];
+  return (
+    edgeSetChanged(previous.forward.get(nodeName) ?? [], current.forward.get(nodeName) ?? []) ||
+    edgeSetChanged(previous.backward.get(nodeName) ?? [], current.backward.get(nodeName) ?? [])
+  );
+}
 
+function edgeSetChanged(prevEdges: Edge[], currEdges: Edge[]): boolean {
   if (prevEdges.length !== currEdges.length) return true;
 
-  const sortEdges = (edges: typeof prevEdges) =>
+  const sortEdges = (edges: Edge[]) =>
     [...edges].sort((a, b) => a.fromOutput - b.fromOutput || a.to.localeCompare(b.to));
 
   const prevSorted = sortEdges(prevEdges);
@@ -122,6 +126,7 @@ function nodeEdgesChanged(
     const p = prevSorted[i];
     const c = currSorted[i];
     if (
+      p.from !== c.from ||
       p.to !== c.to ||
       p.fromOutput !== c.fromOutput ||
       p.toInput !== c.toInput ||
@@ -186,7 +191,7 @@ function classifyChanges(
 
 /** Check if execution settings changed between AST snapshots. */
 function executionSettingsChanged(
-  nodeName: string,
+  nodeName: NodeIdentity,
   prevGraph: WorkflowGraph,
   currGraph: WorkflowGraph,
 ): boolean {
@@ -242,6 +247,10 @@ function expressionSetsEqual(a: Set<string>, b: Set<string>): boolean {
  * Apply rename detection: removed+added pairs with identical type, typeVersion,
  * and parameters are treated as renames. The removed entry is dropped, the added
  * entry becomes a modified entry with metadata-only change.
+ *
+ * Guards against hash collisions: if multiple removed nodes share the same
+ * content hash as an added node (or vice versa), that pair is ambiguous and
+ * skipped rather than arbitrarily matched.
  */
 function applyRenameDetection(
   removed: NodeIdentity[],
@@ -250,32 +259,51 @@ function applyRenameDetection(
   current: WorkflowGraph,
   modified: NodeModification[],
 ): void {
+  // Build hash→index maps for collision detection
+  const removedHashes = new Map<string, number[]>();
+  for (let i = 0; i < removed.length; i++) {
+    const node = previous.nodes.get(removed[i]);
+    if (!node) continue;
+    const hash = computeContentHash(node, previous.ast);
+    const existing = removedHashes.get(hash);
+    if (existing) {
+      existing.push(i);
+    } else {
+      removedHashes.set(hash, [i]);
+    }
+  }
+
+  const addedHashes = new Map<string, number[]>();
+  for (let i = 0; i < added.length; i++) {
+    const node = current.nodes.get(added[i]);
+    if (!node) continue;
+    const hash = computeContentHash(node, current.ast);
+    const existing = addedHashes.get(hash);
+    if (existing) {
+      existing.push(i);
+    } else {
+      addedHashes.set(hash, [i]);
+    }
+  }
+
   const matchedRemoved = new Set<number>();
   const matchedAdded = new Set<number>();
 
-  for (let ri = 0; ri < removed.length; ri++) {
-    if (matchedRemoved.has(ri)) continue;
-    const removedNode = previous.nodes.get(removed[ri]);
-    if (!removedNode) continue;
-    const removedHash = computeContentHash(removedNode, previous.ast);
+  // Only match 1:1 unambiguous pairs — skip when multiple nodes share a hash
+  for (const [hash, removedIndices] of removedHashes) {
+    const addedIndices = addedHashes.get(hash);
+    if (!addedIndices) continue;
+    if (removedIndices.length !== 1 || addedIndices.length !== 1) continue;
 
-    for (let ai = 0; ai < added.length; ai++) {
-      if (matchedAdded.has(ai)) continue;
-      const addedNode = current.nodes.get(added[ai]);
-      if (!addedNode) continue;
-      const addedHash = computeContentHash(addedNode, current.ast);
-
-      if (removedHash === addedHash) {
-        matchedRemoved.add(ri);
-        matchedAdded.add(ai);
-        // Treat as rename — record as modified with metadata-only
-        modified.push({
-          node: added[ai],
-          changes: ['metadata-only'],
-        });
-        break;
-      }
-    }
+    const ri = removedIndices[0];
+    const ai = addedIndices[0];
+    if (ri === undefined || ai === undefined) continue;
+    matchedRemoved.add(ri);
+    matchedAdded.add(ai);
+    modified.push({
+      node: added[ai],
+      changes: ['rename'],
+    });
   }
 
   // Remove matched entries from added and removed (in reverse order to preserve indices)

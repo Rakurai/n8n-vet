@@ -3,8 +3,15 @@
  * schema versioning, Zod validation, and typed error handling.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join } from 'node:path';
 import type { NodeIdentity } from '../types/identity.js';
 import type { NodeTrustRecord, TrustState } from '../types/trust.js';
 import { TrustPersistenceError } from './errors.js';
@@ -109,8 +116,12 @@ export function persistTrustState(state: TrustState, workflowHash: string, dataD
       if (result.success && result.data.schemaVersion === CURRENT_SCHEMA_VERSION) {
         store = result.data;
       }
-    } catch {
-      // JSON parse failure — start fresh
+    } catch (err) {
+      if (err instanceof SyntaxError) {
+        // JSON parse failure — start fresh
+      } else {
+        throw err;
+      }
     }
   }
 
@@ -127,7 +138,20 @@ export function persistTrustState(state: TrustState, workflowHash: string, dataD
     nodes: nodesRecord,
   };
 
-  writeFileSync(filePath, JSON.stringify(store, null, 2));
+  const content = JSON.stringify(store, null, 2);
+
+  // Atomic write: write to temp file then rename
+  const tmpPath = `${filePath}.${process.pid}.tmp`;
+  const lockPath = `${filePath}.lock`;
+
+  // Advisory lock via sentinel file
+  acquireAdvisoryLock(lockPath);
+  try {
+    writeFileSync(tmpPath, content);
+    renameSync(tmpPath, filePath);
+  } finally {
+    releaseAdvisoryLock(lockPath);
+  }
 }
 
 function resolveFilePath(dataDir?: string): string {
@@ -144,4 +168,38 @@ function emptyState(workflowId: string): TrustState {
     nodes: new Map(),
     connectionsHash: '',
   };
+}
+
+const LOCK_STALE_MS = 10_000;
+
+function acquireAdvisoryLock(lockPath: string): void {
+  // If lock exists and is stale, remove it
+  if (existsSync(lockPath)) {
+    try {
+      const raw = readFileSync(lockPath, 'utf-8');
+      const timestamp = Number.parseInt(raw, 10);
+      if (Date.now() - timestamp > LOCK_STALE_MS) {
+        unlinkSync(lockPath);
+      }
+    } catch {
+      // Lock file unreadable — remove
+      try {
+        unlinkSync(lockPath);
+      } catch {
+        /* already gone */
+      }
+    }
+  }
+
+  mkdirSync(dirname(lockPath), { recursive: true });
+  // Best-effort advisory lock via exclusive file creation
+  writeFileSync(lockPath, String(Date.now()), { flag: 'wx' });
+}
+
+function releaseAdvisoryLock(lockPath: string): void {
+  try {
+    unlinkSync(lockPath);
+  } catch {
+    /* already gone */
+  }
 }

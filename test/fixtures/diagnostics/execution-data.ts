@@ -30,14 +30,14 @@ const codeNode = nodeIdentity('codeNode');
 function successResult(
   executionIndex: number,
   executionTimeMs: number = 10,
-  previousNodeOutput: number | null = null,
+  source: NodeExecutionResult['source'] = null,
 ): NodeExecutionResult {
   return {
     executionIndex,
     status: 'success',
     executionTimeMs,
     error: null,
-    source: { previousNodeOutput },
+    source,
     hints: [],
   };
 }
@@ -51,9 +51,9 @@ export const successExecution: ExecutionData = {
   lastNodeExecuted: 'setFields',
   error: null,
   nodeResults: new Map([
-    [trigger, successResult(0, 5)],
-    [httpRequest, successResult(1, 120, 0)],
-    [setFields, successResult(2, 8, 0)],
+    [trigger, [successResult(0, 5)]],
+    [httpRequest, [successResult(1, 120, { previousNode: 'trigger', previousNodeOutput: 0, previousNodeRun: 0 })]],
+    [setFields, [successResult(2, 8, { previousNode: 'httpRequest', previousNodeOutput: 0, previousNodeRun: 0 })]],
   ]),
 };
 
@@ -67,7 +67,7 @@ const apiError500: ExecutionErrorData = {
   message: 'Internal Server Error',
   description: 'The upstream service returned an HTTP 500 response',
   node: 'httpRequest',
-  httpCode: 500,
+  context: { httpCode: '500' },
 };
 
 export const singleNodeApiError500: ExecutionData = {
@@ -75,17 +75,19 @@ export const singleNodeApiError500: ExecutionData = {
   lastNodeExecuted: 'httpRequest',
   error: apiError500,
   nodeResults: new Map([
-    [trigger, successResult(0, 4)],
+    [trigger, [successResult(0, 4)]],
     [
       httpRequest,
-      {
-        executionIndex: 1,
-        status: 'error',
-        executionTimeMs: 250,
-        error: apiError500,
-        source: { previousNodeOutput: 0 },
-        hints: [],
-      },
+      [
+        {
+          executionIndex: 1,
+          status: 'error',
+          executionTimeMs: 250,
+          error: apiError500,
+          source: { previousNode: 'trigger', previousNodeOutput: 0, previousNodeRun: 0 },
+          hints: [],
+        },
+      ],
     ],
   ]),
 };
@@ -100,7 +102,7 @@ const apiError401: ExecutionErrorData = {
   message: 'Unauthorized',
   description: 'The API key or credentials are invalid or expired',
   node: 'httpRequest',
-  httpCode: 401,
+  context: { httpCode: '401' },
 };
 
 export const credentialError401: ExecutionData = {
@@ -108,17 +110,19 @@ export const credentialError401: ExecutionData = {
   lastNodeExecuted: 'httpRequest',
   error: apiError401,
   nodeResults: new Map([
-    [trigger, successResult(0, 3)],
+    [trigger, [successResult(0, 3)]],
     [
       httpRequest,
-      {
-        executionIndex: 1,
-        status: 'error',
-        executionTimeMs: 85,
-        error: apiError401,
-        source: { previousNodeOutput: 0 },
-        hints: [],
-      },
+      [
+        {
+          executionIndex: 1,
+          status: 'error',
+          executionTimeMs: 85,
+          error: apiError401,
+          source: { previousNode: 'trigger', previousNodeOutput: 0, previousNodeRun: 0 },
+          hints: [],
+        },
+      ],
     ],
   ]),
 };
@@ -133,6 +137,7 @@ const networkError: ExecutionErrorData = {
   message: 'ECONNREFUSED',
   description: 'Could not connect to the remote host',
   node: 'httpRequest',
+  context: {},
 };
 
 export const apiErrorNoHttpCode: ExecutionData = {
@@ -140,17 +145,19 @@ export const apiErrorNoHttpCode: ExecutionData = {
   lastNodeExecuted: 'httpRequest',
   error: networkError,
   nodeResults: new Map([
-    [trigger, successResult(0, 2)],
+    [trigger, [successResult(0, 2)]],
     [
       httpRequest,
-      {
-        executionIndex: 1,
-        status: 'error',
-        executionTimeMs: 3000,
-        error: networkError,
-        source: { previousNodeOutput: 0 },
-        hints: [],
-      },
+      [
+        {
+          executionIndex: 1,
+          status: 'error',
+          executionTimeMs: 3000,
+          error: networkError,
+          source: { previousNode: 'trigger', previousNodeOutput: 0, previousNodeRun: 0 },
+          hints: [],
+        },
+      ],
     ],
   ]),
 };
@@ -165,9 +172,7 @@ const exprError: ExecutionErrorData = {
   message: 'Cannot read properties of undefined (reading "name")',
   description: 'Expression referenced a property that does not exist on the input item',
   node: 'setFields',
-  expression: '{{ $json.contact.name }}',
-  parameter: 'value',
-  itemIndex: 0,
+  context: { expressionType: '{{ $json.contact.name }}', parameter: 'value' },
 };
 
 export const expressionError: ExecutionData = {
@@ -175,18 +180,20 @@ export const expressionError: ExecutionData = {
   lastNodeExecuted: 'setFields',
   error: exprError,
   nodeResults: new Map([
-    [trigger, successResult(0, 3)],
-    [httpRequest, successResult(1, 95, 0)],
+    [trigger, [successResult(0, 3)]],
+    [httpRequest, [successResult(1, 95, { previousNode: 'trigger', previousNodeOutput: 0, previousNodeRun: 0 })]],
     [
       setFields,
-      {
-        executionIndex: 2,
-        status: 'error',
-        executionTimeMs: 4,
-        error: exprError,
-        source: { previousNodeOutput: 0 },
-        hints: [],
-      },
+      [
+        {
+          executionIndex: 2,
+          status: 'error',
+          executionTimeMs: 4,
+          error: exprError,
+          source: { previousNode: 'httpRequest', previousNodeOutput: 0, previousNodeRun: 0 },
+          hints: [],
+        },
+      ],
     ],
   ]),
 };
@@ -201,25 +208,27 @@ const cancellationError: ExecutionErrorData = {
   message: 'Execution was cancelled',
   description: null,
   node: null,
-  reason: 'user-requested',
+  context: { reason: 'manual' },
 };
 
 export const cancelledExecution: ExecutionData = {
-  status: 'cancelled',
+  status: 'canceled',
   lastNodeExecuted: 'httpRequest',
   error: cancellationError,
   nodeResults: new Map([
-    [trigger, successResult(0, 3)],
+    [trigger, [successResult(0, 3)]],
     [
       httpRequest,
-      {
-        executionIndex: 1,
-        status: 'error',
-        executionTimeMs: 5200,
-        error: cancellationError,
-        source: { previousNodeOutput: 0 },
-        hints: [],
-      },
+      [
+        {
+          executionIndex: 1,
+          status: 'error',
+          executionTimeMs: 5200,
+          error: cancellationError,
+          source: { previousNode: 'trigger', previousNodeOutput: 0, previousNodeRun: 0 },
+          hints: [],
+        },
+      ],
     ],
   ]),
 };
@@ -234,6 +243,7 @@ const otherError: ExecutionErrorData = {
   message: 'An unexpected internal error occurred',
   description: null,
   node: 'codeNode',
+  context: {},
 };
 
 export const unknownError: ExecutionData = {
@@ -241,19 +251,21 @@ export const unknownError: ExecutionData = {
   lastNodeExecuted: 'codeNode',
   error: otherError,
   nodeResults: new Map([
-    [trigger, successResult(0, 2)],
-    [httpRequest, successResult(1, 140, 0)],
-    [setFields, successResult(2, 6, 0)],
+    [trigger, [successResult(0, 2)]],
+    [httpRequest, [successResult(1, 140, { previousNode: 'trigger', previousNodeOutput: 0, previousNodeRun: 0 })]],
+    [setFields, [successResult(2, 6, { previousNode: 'httpRequest', previousNodeOutput: 0, previousNodeRun: 0 })]],
     [
       codeNode,
-      {
-        executionIndex: 3,
-        status: 'error',
-        executionTimeMs: 15,
-        error: otherError,
-        source: { previousNodeOutput: 0 },
-        hints: [],
-      },
+      [
+        {
+          executionIndex: 3,
+          status: 'error',
+          executionTimeMs: 15,
+          error: otherError,
+          source: { previousNode: 'setFields', previousNodeOutput: 0, previousNodeRun: 0 },
+          hints: [],
+        },
+      ],
     ],
   ]),
 };
@@ -267,53 +279,61 @@ export const multiNodePath: ExecutionData = {
   lastNodeExecuted: 'codeNode',
   error: null,
   nodeResults: new Map([
-    [trigger, successResult(0, 3)],
+    [trigger, [successResult(0, 3)]],
     [
       httpRequest,
-      {
-        executionIndex: 1,
-        status: 'success',
-        executionTimeMs: 210,
-        error: null,
-        source: { previousNodeOutput: 0 },
-        hints: [{ message: 'Rate limit header indicates 12 remaining requests' }],
-      },
+      [
+        {
+          executionIndex: 1,
+          status: 'success',
+          executionTimeMs: 210,
+          error: null,
+          source: { previousNode: 'trigger', previousNodeOutput: 0, previousNodeRun: 0 },
+          hints: [{ message: 'Rate limit header indicates 12 remaining requests', severity: 'info' }],
+        },
+      ],
     ],
     [
       setFields,
-      {
-        executionIndex: 2,
-        status: 'success',
-        executionTimeMs: 7,
-        error: null,
-        source: { previousNodeOutput: 0 },
-        hints: [],
-      },
+      [
+        {
+          executionIndex: 2,
+          status: 'success',
+          executionTimeMs: 7,
+          error: null,
+          source: { previousNode: 'httpRequest', previousNodeOutput: 0, previousNodeRun: 0 },
+          hints: [],
+        },
+      ],
     ],
     [
       ifNode,
-      {
-        executionIndex: 3,
-        status: 'success',
-        executionTimeMs: 2,
-        error: null,
-        source: { previousNodeOutput: 0 },
-        hints: [{ message: 'All items routed to true branch' }],
-      },
+      [
+        {
+          executionIndex: 3,
+          status: 'success',
+          executionTimeMs: 2,
+          error: null,
+          source: { previousNode: 'setFields', previousNodeOutput: 0, previousNodeRun: 0 },
+          hints: [{ message: 'All items routed to true branch', severity: 'info' }],
+        },
+      ],
     ],
     [
       codeNode,
-      {
-        executionIndex: 4,
-        status: 'success',
-        executionTimeMs: 45,
-        error: null,
-        source: { previousNodeOutput: 1 },
-        hints: [
-          { message: 'Output contains 3 items' },
-          { message: 'Execution used 12 MB heap memory' },
-        ],
-      },
+      [
+        {
+          executionIndex: 4,
+          status: 'success',
+          executionTimeMs: 45,
+          error: null,
+          source: { previousNode: 'ifNode', previousNodeOutput: 1, previousNodeRun: 0 },
+          hints: [
+            { message: 'Output contains 3 items', severity: 'info' },
+            { message: 'Execution used 12 MB heap memory', severity: 'info' },
+          ],
+        },
+      ],
     ],
   ]),
 };
@@ -328,7 +348,7 @@ const redactedError: ExecutionErrorData = {
   message: 'Execution data redacted',
   description: null,
   node: 'httpRequest',
-  httpCode: 500,
+  context: { httpCode: '500' },
 };
 
 export const redactedNodeExecution: ExecutionData = {
@@ -336,17 +356,19 @@ export const redactedNodeExecution: ExecutionData = {
   lastNodeExecuted: 'httpRequest',
   error: redactedError,
   nodeResults: new Map([
-    [trigger, successResult(0, 3)],
+    [trigger, [successResult(0, 3)]],
     [
       httpRequest,
-      {
-        executionIndex: 1,
-        status: 'error',
-        executionTimeMs: 0,
-        error: redactedError,
-        source: { previousNodeOutput: 0 },
-        hints: [],
-      },
+      [
+        {
+          executionIndex: 1,
+          status: 'error',
+          executionTimeMs: 0,
+          error: redactedError,
+          source: { previousNode: 'trigger', previousNodeOutput: 0, previousNodeRun: 0 },
+          hints: [],
+        },
+      ],
     ],
   ]),
 };

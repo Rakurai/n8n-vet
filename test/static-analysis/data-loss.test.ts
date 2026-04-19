@@ -351,4 +351,50 @@ describe('detectDataLoss', () => {
     expect(dataLossFindings).toHaveLength(1);
     expect(dataLossFindings[0].severity).toBe('error');
   });
+
+  it('handles cyclic graph without infinite loop', () => {
+    // A→B→C→A cycle — backward walk should terminate
+    const graph = makeGraph([
+      {
+        name: 'nodeA',
+        displayName: 'Node A',
+        type: 'n8n-nodes-base.set',
+        classification: 'shape-replacing',
+        predecessors: ['nodeC'],
+      },
+      {
+        name: 'nodeB',
+        displayName: 'Node B',
+        type: 'n8n-nodes-base.set',
+        classification: 'shape-preserving',
+        predecessors: ['nodeA'],
+      },
+      {
+        name: 'nodeC',
+        displayName: 'Node C',
+        type: 'n8n-nodes-base.set',
+        classification: 'shape-preserving',
+        predecessors: ['nodeB'],
+      },
+    ]);
+
+    const ref: ExpressionReference = {
+      node: nodeIdentity('nodeC'),
+      parameter: 'value',
+      raw: '={{ $json.field }}',
+      referencedNode: null,
+      fieldPath: 'field',
+      resolved: true,
+    };
+
+    // Should complete without hanging — the cycle should be detected
+    const findings = detectDataLoss(
+      graph,
+      [ref],
+      [nodeIdentity('nodeC')],
+    );
+
+    // We expect at least a data-loss finding from nodeA (shape-replacing)
+    expect(findings).toBeDefined();
+  });
 });

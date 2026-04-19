@@ -12,13 +12,13 @@
 
 import { z } from 'zod';
 import type { NodeIdentity } from '../types/identity.js';
-import type { ExecutionData, ExecutionResult, ExecutionStatus, PinData } from './types.js';
-import { isTerminalStatus } from './types.js';
 import { ExecutionInfrastructureError } from './errors.js';
 import { withExecutionLock } from './lock.js';
+import type { PollStatusResult, PollingStrategy } from './poll.js';
 import { extractExecutionData } from './results.js';
 import type { RawResultData } from './results.js';
-import type { PollingStrategy, PollStatusResult } from './poll.js';
+import type { ExecutionData, ExecutionResult, ExecutionStatus, PinData } from './types.js';
+import { isTerminalStatus } from './types.js';
 
 // ---------------------------------------------------------------------------
 // MCP tool caller interface
@@ -28,10 +28,7 @@ import type { PollingStrategy, PollStatusResult } from './poll.js';
  * Abstraction for invoking an MCP tool.
  * The actual implementation depends on the MCP SDK client instance.
  */
-export type McpToolCaller = (
-  toolName: string,
-  args: Record<string, unknown>,
-) => Promise<unknown>;
+export type McpToolCaller = (toolName: string, args: Record<string, unknown>) => Promise<unknown>;
 
 // ---------------------------------------------------------------------------
 // Zod schemas — MCP response boundaries (T018)
@@ -44,33 +41,45 @@ export const TestWorkflowResponseSchema = z.object({
   error: z.string().optional(),
 });
 
-/** Schema for get_execution MCP tool response. */
+/** Schema for get_execution MCP tool response (execution and data are top-level siblings). */
 export const GetExecutionResponseSchema = z.object({
-  execution: z.object({
-    id: z.string(),
-    workflowId: z.string(),
-    mode: z.string(),
-    status: z.string(),
-    startedAt: z.string(),
-    stoppedAt: z.string().nullable(),
-    data: z.object({
+  execution: z
+    .object({
+      id: z.string(),
+      workflowId: z.string(),
+      mode: z.string(),
+      status: z.string(),
+      startedAt: z.string(),
+      stoppedAt: z.string().nullable(),
+    })
+    .nullable(),
+  data: z
+    .object({
       resultData: z.object({
-        runData: z.record(z.array(z.object({
-          startTime: z.number(),
-          executionTime: z.number(),
-          executionStatus: z.string().optional(),
-          error: z.record(z.unknown()).optional().nullable(),
-          source: z.array(z.record(z.unknown()).nullable()).optional().nullable(),
-          hints: z.array(z.object({
-            message: z.string(),
-            level: z.string().optional(),
-          })).optional(),
-        }))),
+        runData: z.record(
+          z.array(
+            z.object({
+              startTime: z.number(),
+              executionTime: z.number(),
+              executionStatus: z.string().optional(),
+              error: z.record(z.unknown()).optional().nullable(),
+              source: z.array(z.record(z.unknown()).nullable()).optional().nullable(),
+              hints: z
+                .array(
+                  z.object({
+                    message: z.string(),
+                    level: z.string().optional(),
+                  }),
+                )
+                .optional(),
+            }),
+          ),
+        ),
         error: z.record(z.unknown()).optional().nullable(),
         lastNodeExecuted: z.string().optional().nullable(),
       }),
-    }).optional(),
-  }).nullable(),
+    })
+    .optional(),
   error: z.string().optional(),
 });
 
@@ -98,7 +107,7 @@ export const PreparePinDataResponseSchema = z.object({
  * Synchronous — blocks until execution completes or 5-minute timeout.
  * Returns ExecutionResult with partial: false.
  */
-export async function executeSmoke(
+export function executeSmoke(
   workflowId: string,
   pinData: PinData,
   callTool: McpToolCaller,
@@ -107,7 +116,7 @@ export async function executeSmoke(
   return withExecutionLock(async () => {
     const args: Record<string, unknown> = { workflowId, pinData };
     if (triggerNodeName !== undefined) {
-      args['triggerNodeName'] = triggerNodeName;
+      args.triggerNodeName = triggerNodeName;
     }
 
     let raw: unknown;
@@ -162,13 +171,13 @@ export async function getExecution(
 ): Promise<{ status: ExecutionStatus; data?: ExecutionData }> {
   const args: Record<string, unknown> = { workflowId, executionId };
   if (options?.includeData) {
-    args['includeData'] = true;
+    args.includeData = true;
   }
   if (options?.nodeNames) {
-    args['nodeNames'] = options.nodeNames;
+    args.nodeNames = options.nodeNames;
   }
   if (options?.truncateData !== undefined) {
-    args['truncateData'] = options.truncateData;
+    args.truncateData = options.truncateData;
   }
 
   let raw: unknown;
@@ -192,12 +201,12 @@ export async function getExecution(
 
   const status = parsed.execution.status as ExecutionStatus;
 
-  if (!options?.includeData || !parsed.execution.data) {
+  if (!options?.includeData || !parsed.data) {
     return { status };
   }
 
   const executionData = extractExecutionData(
-    parsed.execution.data.resultData as RawResultData,
+    parsed.data.resultData as RawResultData,
     status,
     options.nodeNames,
   );

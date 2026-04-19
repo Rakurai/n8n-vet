@@ -3,9 +3,9 @@
  * that agents branch on in the diagnostic summary.
  */
 
+import type { StaticFinding } from '../static-analysis/types.js';
 import type { DiagnosticSummary } from '../types/diagnostic.js';
 import type { GuardrailDecision } from '../types/guardrail.js';
-import type { StaticFinding } from '../static-analysis/types.js';
 import type { ExecutionData } from './types.js';
 
 /**
@@ -30,17 +30,14 @@ export function determineStatus(
     (f) => f.severity === 'error' && f.kind !== 'opaque-boundary',
   );
 
-  const hasNodeErrors =
-    executionData !== null && hasNodeLevelErrors(executionData);
+  const hasNodeErrors = executionData !== null && hasNodeLevelErrors(executionData);
 
   if (hasStaticErrors || hasNodeErrors) {
     return 'fail';
   }
 
   const hasInfrastructureError =
-    executionData !== null &&
-    executionData.error !== null &&
-    !hasNodeErrors;
+    executionData !== null && executionData.error !== null && !hasNodeErrors;
 
   if (hasInfrastructureError) {
     return 'error';
@@ -50,8 +47,9 @@ export function determineStatus(
 }
 
 function hasNodeLevelErrors(data: ExecutionData): boolean {
-  for (const [, result] of data.nodeResults) {
-    if (result.error !== null) return true;
+  for (const [, nodeResults] of data.nodeResults) {
+    const result = nodeResults[nodeResults.length - 1];
+    if (result && result.error !== null) return true;
   }
   return false;
 }

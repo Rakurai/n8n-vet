@@ -193,3 +193,28 @@ describe('computeWorkflowHash', () => {
     expect(hash2).not.toBe(hash1);
   });
 });
+
+describe('snapshot hash stability', () => {
+  it('produces same hash after save→load round-trip', async () => {
+    const graph = await loadLinearSimple();
+    const originalHash = computeContentHash(graph.nodes.get('httpRequest')!, graph.ast);
+
+    // Simulate snapshot round-trip: extract the trust-relevant fields
+    // and reconstruct a stub AST, mirroring what loadSnapshot does
+    const node = graph.nodes.get('httpRequest')!;
+    const nodeAst = graph.ast.nodes.find((n: { propertyName: string }) => n.propertyName === node.name);
+    const stubAst = {
+      nodes: [{
+        propertyName: node.name,
+        position: [0, 0] as [number, number],
+        retryOnFail: (nodeAst as unknown as Record<string, unknown>)?.retryOnFail ?? false,
+        executeOnce: (nodeAst as unknown as Record<string, unknown>)?.executeOnce ?? false,
+        onError: (nodeAst as unknown as Record<string, unknown>)?.onError ?? null,
+      }],
+      connections: [],
+    } as unknown as WorkflowAST;
+
+    const roundTrippedHash = computeContentHash(node, stubAst);
+    expect(roundTrippedHash).toBe(originalHash);
+  });
+});

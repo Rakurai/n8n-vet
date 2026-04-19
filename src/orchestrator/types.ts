@@ -3,24 +3,24 @@
  * snapshot serialization for the 10-step validation pipeline.
  */
 
-import { resolve } from 'node:path';
-import { z } from 'zod';
+import { relative, resolve } from 'node:path';
 import type { WorkflowAST } from '@n8n-as-code/transformer';
+import { z } from 'zod';
 import type { SynthesisInput } from '../diagnostics/types.js';
+import type { McpToolCaller } from '../execution/mcp-client.js';
 import type {
+  DetectedCapabilities,
+  ExecutionResult,
   PinData,
   PinDataItem,
   PinDataResult,
-  ExecutionResult,
-  DetectedCapabilities,
   ResolvedCredentials,
 } from '../execution/types.js';
-import type { McpToolCaller } from '../execution/mcp-client.js';
 import type { EvaluationInput } from '../guardrails/types.js';
-import type { ExpressionReference, StaticFinding } from '../static-analysis/types.js';
 import type { NodeSchemaProvider } from '../static-analysis/schemas.js';
+import type { ExpressionReference, StaticFinding } from '../static-analysis/types.js';
 import type { DiagnosticSummary, ResolvedTarget } from '../types/diagnostic.js';
-import type { WorkflowGraph } from '../types/graph.js';
+import type { NodeClassification, WorkflowGraph } from '../types/graph.js';
 import type { GuardrailDecision } from '../types/guardrail.js';
 import type { NodeIdentity } from '../types/identity.js';
 import type { AgentTarget, ValidationLayer } from '../types/target.js';
@@ -57,6 +57,7 @@ export interface ValidationRequest {
   pinData: PinData | null;
   destinationNode: string | null;
   destinationMode: 'inclusive' | 'exclusive';
+  callTool?: McpToolCaller;
 }
 
 // ── InterpretedRequest ────────────────────────────────────────────
@@ -83,7 +84,11 @@ export interface OrchestratorDeps {
   loadTrustState: (workflowId: string) => TrustState;
   persistTrustState: (state: TrustState, workflowHash: string) => void;
   computeChangeSet: (previous: WorkflowGraph, current: WorkflowGraph) => NodeChangeSet;
-  invalidateTrust: (state: TrustState, changeSet: NodeChangeSet, graph: WorkflowGraph) => TrustState;
+  invalidateTrust: (
+    state: TrustState,
+    changeSet: NodeChangeSet,
+    graph: WorkflowGraph,
+  ) => TrustState;
   recordValidation: (
     state: TrustState,
     nodes: NodeIdentity[],
@@ -129,10 +134,7 @@ export interface OrchestratorDeps {
     callTool: McpToolCaller,
     triggerNodeName?: string,
   ) => Promise<ExecutionResult>;
-  getExecutionData: (
-    executionId: string,
-    credentials: ResolvedCredentials,
-  ) => Promise<unknown>;
+  getExecutionData: (executionId: string, credentials: ResolvedCredentials) => Promise<unknown>;
   constructPinData: (
     graph: WorkflowGraph,
     trustedBoundaries: NodeIdentity[],
@@ -166,7 +168,10 @@ export interface SerializedGraphNode {
   parameters: Record<string, unknown>;
   credentials: Record<string, unknown> | null;
   disabled: boolean;
-  classification: string;
+  classification: NodeClassification;
+  retryOnFail: boolean;
+  executeOnce: boolean;
+  onError: string | null;
 }
 
 /** Serialized edge for snapshot storage. */
@@ -189,7 +194,7 @@ export interface WorkflowSnapshot {
 
 // ── Helpers ───────────────────────────────────────────────────────
 
-/** Derive a stable workflow ID from a file path (absolute, normalized). */
+/** Derive a stable, portable workflow ID from a file path (project-relative). */
 export function deriveWorkflowId(workflowPath: string): string {
-  return resolve(workflowPath);
+  return relative(process.cwd(), resolve(workflowPath));
 }

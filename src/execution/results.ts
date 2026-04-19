@@ -80,9 +80,7 @@ export function extractExecutionData(
   for (const [nodeName, runs] of Object.entries(resultData.runData)) {
     if (nameFilter && !nameFilter.has(nodeName)) continue;
 
-    const results: NodeExecutionResult[] = runs.map((run, index) =>
-      extractNodeRun(run, index),
-    );
+    const results: NodeExecutionResult[] = runs.map((run, index) => extractNodeRun(run, index));
 
     nodeResults.set(nodeIdentity(nodeName), results);
   }
@@ -110,9 +108,7 @@ function extractNodeRun(run: RawNodeRun, index: number): NodeExecutionResult {
   };
 }
 
-function extractSource(
-  source: RawNodeRun['source'],
-): SourceInfo | null {
+function extractSource(source: RawNodeRun['source']): SourceInfo | null {
   if (!source || source.length === 0) return null;
 
   // Take the first non-null source entry
@@ -126,9 +122,7 @@ function extractSource(
   };
 }
 
-function extractHints(
-  hints: RawNodeRun['hints'],
-): ExecutionHint[] {
+function extractHints(hints: RawNodeRun['hints']): ExecutionHint[] {
   if (!hints) return [];
   return hints.map((h) => ({
     message: h.message,
@@ -160,7 +154,7 @@ export function classifyError(raw: NonNullable<RawNodeRun['error']>): ExecutionE
   // API error — has httpCode
   if (raw.httpCode) {
     const context: { httpCode: string; errorCode?: string } = { httpCode: raw.httpCode };
-    const errorCode = raw.context?.['errorCode'];
+    const errorCode = raw.context?.errorCode;
     if (typeof errorCode === 'string') {
       context.errorCode = errorCode;
     }
@@ -168,8 +162,13 @@ export function classifyError(raw: NonNullable<RawNodeRun['error']>): ExecutionE
   }
 
   // Cancellation error
-  if (raw.name?.includes('Cancel') || raw.context?.['reason'] === 'manual' || raw.context?.['reason'] === 'timeout' || raw.context?.['reason'] === 'shutdown') {
-    const reason = (raw.context?.['reason'] as 'manual' | 'timeout' | 'shutdown') ?? 'manual';
+  if (
+    raw.name?.includes('Cancel') ||
+    raw.context?.reason === 'manual' ||
+    raw.context?.reason === 'timeout' ||
+    raw.context?.reason === 'shutdown'
+  ) {
+    const reason = (raw.context?.reason as 'manual' | 'timeout' | 'shutdown') ?? 'manual';
     return {
       ...base,
       contextKind: 'cancellation',
@@ -180,11 +179,11 @@ export function classifyError(raw: NonNullable<RawNodeRun['error']>): ExecutionE
   // Expression error
   if (raw.name?.includes('Expression')) {
     const context: { expressionType?: string; parameter?: string } = {};
-    const exprType = raw.context?.['expressionType'];
+    const exprType = raw.context?.expressionType;
     if (typeof exprType === 'string') {
       context.expressionType = exprType;
     }
-    const param = raw.context?.['parameter'];
+    const param = raw.context?.parameter;
     if (typeof param === 'string') {
       context.parameter = param;
     }
@@ -193,11 +192,11 @@ export function classifyError(raw: NonNullable<RawNodeRun['error']>): ExecutionE
 
   // Generic/other error
   const context: { runIndex?: number; itemIndex?: number } = {};
-  const runIndex = raw.context?.['runIndex'];
+  const runIndex = raw.context?.runIndex;
   if (typeof runIndex === 'number') {
     context.runIndex = runIndex;
   }
-  const itemIndex = raw.context?.['itemIndex'];
+  const itemIndex = raw.context?.itemIndex;
   if (typeof itemIndex === 'number') {
     context.itemIndex = itemIndex;
   }

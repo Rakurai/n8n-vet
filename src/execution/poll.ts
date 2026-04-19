@@ -11,12 +11,12 @@
 import type { NodeIdentity } from '../types/identity.js';
 import type { ExecutionData, ExecutionStatus } from './types.js';
 import {
-  isTerminalStatus,
-  POLL_INITIAL_DELAY_MS,
   POLL_BACKOFF_FACTOR,
+  POLL_INITIAL_DELAY_MS,
   POLL_MAX_DELAY_MS,
   POLL_TIMEOUT_MS,
   POLL_TRUNCATE_DATA,
+  isTerminalStatus,
 } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -69,17 +69,22 @@ export async function pollForCompletion(
 
   // Phase 1: Status-only polling
   while (true) {
+    await sleep(delay);
+
     const elapsed = Date.now() - startTime;
     if (elapsed >= POLL_TIMEOUT_MS) {
       return timeoutResult();
     }
 
-    await sleep(delay);
-
     const { status } = await strategy.checkStatus(executionId);
 
     if (isTerminalStatus(status)) {
       break;
+    }
+
+    // Check elapsed again after API call
+    if (Date.now() - startTime >= POLL_TIMEOUT_MS) {
+      return timeoutResult();
     }
 
     delay = Math.min(delay * POLL_BACKOFF_FACTOR, POLL_MAX_DELAY_MS);

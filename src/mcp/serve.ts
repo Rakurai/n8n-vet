@@ -6,8 +6,8 @@
  */
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { createServer } from './server.js';
 import { buildDeps } from '../deps.js';
+import { createServer } from './server.js';
 
 const deps = buildDeps();
 const server = createServer(deps);

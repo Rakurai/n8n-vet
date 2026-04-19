@@ -11,17 +11,12 @@
  * and artifact caching for tier 2 sourcing.
  */
 
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { WorkflowGraph } from '../types/graph.js';
 import type { NodeIdentity } from '../types/identity.js';
-import type {
-  PinData,
-  PinDataItem,
-  PinDataResult,
-  PinDataSourceMap,
-} from './types.js';
 import { ExecutionPreconditionError } from './errors.js';
+import type { PinData, PinDataItem, PinDataResult, PinDataSourceMap } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Pin Data Construction (T013)
@@ -52,14 +47,14 @@ export function constructPinData(
 
     // Tier 1: Agent-provided fixtures
     if (fixtures && nodeName in fixtures) {
-      pinData[nodeName] = normalizePinData(fixtures[nodeName]!);
+      pinData[nodeName] = normalizePinData(fixtures[nodeName] ?? []);
       sourceMap[nodeName] = 'agent-fixture';
       continue;
     }
 
     // Tier 2: Prior validation artifacts
     if (priorArtifacts && nodeName in priorArtifacts) {
-      pinData[nodeName] = normalizePinData(priorArtifacts[nodeName]!);
+      pinData[nodeName] = normalizePinData(priorArtifacts[nodeName] ?? []);
       sourceMap[nodeName] = 'prior-artifact';
       continue;
     }
@@ -109,7 +104,8 @@ function isWrappedItem(item: unknown): item is PinDataItem {
     typeof item === 'object' &&
     item !== null &&
     'json' in item &&
-    typeof (item as Record<string, unknown>)['json'] === 'object'
+    (item as Record<string, unknown>).json !== null &&
+    typeof (item as Record<string, unknown>).json === 'object'
   );
 }
 
@@ -134,8 +130,11 @@ export async function readCachedPinData(
   let raw: string;
   try {
     raw = await readFile(path, 'utf-8');
-  } catch {
-    return undefined; // File not found — expected for cache miss
+  } catch (err) {
+    if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return undefined; // File not found — expected for cache miss
+    }
+    throw err; // Unexpected error — re-throw
   }
 
   // JSON parse errors indicate corrupt cache — fail-fast, don't mask

@@ -59,5 +59,6 @@ export type ChangeKind =
   | 'type-version'
   | 'credential'
   | 'execution-setting'
+  | 'rename'
   | 'position-only'
   | 'metadata-only';

@@ -5,8 +5,8 @@
  * into unified DiagnosticHint entries for the final summary.
  */
 
-import type { DiagnosticHint } from '../types/diagnostic.js';
 import type { StaticFinding } from '../static-analysis/types.js';
+import type { DiagnosticHint } from '../types/diagnostic.js';
 import type { ExecutionData } from './types.js';
 
 /**
@@ -34,10 +34,7 @@ export function collectHints(
   return hints;
 }
 
-function collectStaticWarningHints(
-  findings: StaticFinding[],
-  out: DiagnosticHint[],
-): void {
+function collectStaticWarningHints(findings: StaticFinding[], out: DiagnosticHint[]): void {
   for (const finding of findings) {
     if (finding.severity === 'warning') {
       out.push({
@@ -49,11 +46,11 @@ function collectStaticWarningHints(
   }
 }
 
-function collectExecutionHints(
-  data: ExecutionData,
-  out: DiagnosticHint[],
-): void {
-  for (const [node, result] of data.nodeResults) {
+function collectExecutionHints(data: ExecutionData, out: DiagnosticHint[]): void {
+  for (const [node, nodeResults] of data.nodeResults) {
+    const result = nodeResults[nodeResults.length - 1];
+    if (!result) continue;
+
     for (const hint of result.hints) {
       out.push({
         node,
@@ -75,7 +72,8 @@ function collectExecutionHints(
 function staticOnlyRunHint(): DiagnosticHint {
   return {
     node: null,
-    message: 'Static analysis only — execution may catch additional issues not visible to static checks.',
+    message:
+      'Static analysis only — execution may catch additional issues not visible to static checks.',
     severity: 'info',
   };
 }

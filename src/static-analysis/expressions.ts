@@ -9,9 +9,9 @@
  * 4. `$node["DisplayName"].json.field` — legacy named reference
  */
 
+import type { WorkflowGraph } from '../types/graph.js';
 import type { NodeIdentity } from '../types/identity.js';
 import { nodeIdentity } from '../types/identity.js';
-import type { WorkflowGraph } from '../types/graph.js';
 import type { ExpressionReference } from './types.js';
 
 /**
@@ -34,13 +34,7 @@ export function traceExpressions(
     const graphNode = graph.nodes.get(nodeId);
     if (!graphNode) continue;
 
-    walkParameters(
-      graphNode.parameters,
-      '',
-      nodeId,
-      graph,
-      results,
-    );
+    walkParameters(graphNode.parameters, '', nodeId, graph, results);
   }
 
   return results;
@@ -55,13 +49,25 @@ const JSON_DOT_PATTERN = /\$json\.(\w+(?:\.\w+)*)/g;
 const JSON_BRACKET_PATTERN = /\$json\[['"](\w+)['"]\]/g;
 
 // Pattern 2: $('DisplayName').first().json.field (and .last(), .item, .all(), .itemMatching())
-const EXPLICIT_REF_PATTERN = /\$\(['"]([^'"]+)['"]\)(?:\.(?:first|last|all|itemMatching)\(\)|\.\s*item)?\.json(?:\.(\w+(?:\.\w+)*)|\[['"](\w+)['"]\])?/g;
+const EXPLICIT_REF_PATTERN =
+  /\$\(['"]([^'"]+)['"]\)(?:\.(?:first|last|all|itemMatching)\(\)|\.\s*item)?\.json(?:\.(\w+(?:\.\w+)*)|\[['"](\w+)['"]\])?/g;
 
 // Pattern 3: $input.first().json.field (and variants)
-const INPUT_PATTERN = /\$input(?:\.(?:first|last|all|itemMatching)\(\)|\.\s*item)?\.json(?:\.(\w+(?:\.\w+)*)|\[['"](\w+)['"]\])?/g;
+const INPUT_PATTERN =
+  /\$input(?:\.(?:first|last|all|itemMatching)\(\)|\.\s*item)?\.json(?:\.(\w+(?:\.\w+)*)|\[['"](\w+)['"]\])?/g;
 
-// Pattern 4: $node["DisplayName"].json.field (legacy)
-const NODE_REF_PATTERN = /\$node\[['"]([^'"]+)['"]\]\.json(?:\.(\w+(?:\.\w+)*)|\[['"](\w+)['"]\])?/g;
+// Pattern 4: $node["DisplayName"].json.field (legacy bracket syntax)
+const NODE_REF_PATTERN =
+  /\$node\[['"]([^'"]+)['"]\]\.json(?:\.(\w+(?:\.\w+)*)|\[['"](\w+)['"]\])?/g;
+
+// Pattern 4b: $node.DisplayName.json.field (legacy dot syntax)
+const NODE_DOT_PATTERN = /\$node\.(\w+)\.json(?:\.(\w+(?:\.\w+)*)|\[['"](\w+)['"]\])?/g;
+
+// Pattern 5: $items("DisplayName", index) — explicit item access
+const ITEMS_PATTERN = /\$items\(['"]([^'"]+)['"]\s*(?:,\s*\d+)?\)/g;
+
+// Pattern 6: $binary.field — binary data access (unresolvable for json analysis)
+const BINARY_PATTERN = /\$binary(?:\.(\w+)|\[['"](\w+)['"]\])/g;
 
 // Unresolvable patterns: $fromAI(), dynamic bracket access ($json[variable])
 const FROM_AI_PATTERN = /\$fromAI\(/g;
@@ -120,6 +126,12 @@ function extractFromExpression(
   extractInputRefs(expression, parameter, nodeId, results);
   // Pattern 4: $node["DisplayName"]...
   extractNodeRefs(expression, parameter, nodeId, graph, results);
+  // Pattern 4b: $node.DisplayName... (dot syntax)
+  extractNodeDotRefs(expression, parameter, nodeId, graph, results);
+  // Pattern 5: $items("DisplayName")
+  extractItemsRefs(expression, parameter, nodeId, graph, results);
+  // Pattern 6: $binary access
+  extractBinaryRefs(expression, parameter, nodeId, results);
   // Unresolvable: $fromAI(), dynamic bracket access
   extractUnresolvableRefs(expression, parameter, nodeId, results);
 }
@@ -130,12 +142,8 @@ function extractJsonDotRefs(
   nodeId: NodeIdentity,
   results: ExpressionReference[],
 ): void {
-  // Reset lastIndex for global regex
-  JSON_DOT_PATTERN.lastIndex = 0;
-
   // Filter out matches that are actually part of explicit patterns
-  let match: RegExpExecArray | null;
-  while ((match = JSON_DOT_PATTERN.exec(expression)) !== null) {
+  for (const match of expression.matchAll(JSON_DOT_PATTERN)) {
     // Check this isn't inside a $('...).json or $input.json or $node[...].json context
     const beforeMatch = expression.slice(0, match.index);
     if (isInsideExplicitContext(beforeMatch)) continue;
@@ -157,10 +165,7 @@ function extractJsonBracketRefs(
   nodeId: NodeIdentity,
   results: ExpressionReference[],
 ): void {
-  JSON_BRACKET_PATTERN.lastIndex = 0;
-
-  let match: RegExpExecArray | null;
-  while ((match = JSON_BRACKET_PATTERN.exec(expression)) !== null) {
+  for (const match of expression.matchAll(JSON_BRACKET_PATTERN)) {
     const beforeMatch = expression.slice(0, match.index);
     if (isInsideExplicitContext(beforeMatch)) continue;
 
@@ -182,10 +187,7 @@ function extractExplicitRefs(
   graph: WorkflowGraph,
   results: ExpressionReference[],
 ): void {
-  EXPLICIT_REF_PATTERN.lastIndex = 0;
-
-  let match: RegExpExecArray | null;
-  while ((match = EXPLICIT_REF_PATTERN.exec(expression)) !== null) {
+  for (const match of expression.matchAll(EXPLICIT_REF_PATTERN)) {
     const displayName = match[1];
     const fieldPath = match[2] ?? match[3] ?? null;
     const propertyName = graph.displayNameIndex.get(displayName);
@@ -207,10 +209,7 @@ function extractInputRefs(
   nodeId: NodeIdentity,
   results: ExpressionReference[],
 ): void {
-  INPUT_PATTERN.lastIndex = 0;
-
-  let match: RegExpExecArray | null;
-  while ((match = INPUT_PATTERN.exec(expression)) !== null) {
+  for (const match of expression.matchAll(INPUT_PATTERN)) {
     const fieldPath = match[1] ?? match[2] ?? null;
 
     results.push({
@@ -231,10 +230,7 @@ function extractNodeRefs(
   graph: WorkflowGraph,
   results: ExpressionReference[],
 ): void {
-  NODE_REF_PATTERN.lastIndex = 0;
-
-  let match: RegExpExecArray | null;
-  while ((match = NODE_REF_PATTERN.exec(expression)) !== null) {
+  for (const match of expression.matchAll(NODE_REF_PATTERN)) {
     const displayName = match[1];
     const fieldPath = match[2] ?? match[3] ?? null;
     const propertyName = graph.displayNameIndex.get(displayName);
@@ -250,6 +246,69 @@ function extractNodeRefs(
   }
 }
 
+function extractNodeDotRefs(
+  expression: string,
+  parameter: string,
+  nodeId: NodeIdentity,
+  graph: WorkflowGraph,
+  results: ExpressionReference[],
+): void {
+  for (const match of expression.matchAll(NODE_DOT_PATTERN)) {
+    const displayName = match[1];
+    const fieldPath = match[2] ?? match[3] ?? null;
+    const propertyName = graph.displayNameIndex.get(displayName);
+
+    results.push({
+      node: nodeId,
+      parameter,
+      raw: match[0],
+      referencedNode: propertyName ? nodeIdentity(propertyName) : null,
+      fieldPath,
+      resolved: propertyName !== undefined,
+    });
+  }
+}
+
+function extractItemsRefs(
+  expression: string,
+  parameter: string,
+  nodeId: NodeIdentity,
+  graph: WorkflowGraph,
+  results: ExpressionReference[],
+): void {
+  for (const match of expression.matchAll(ITEMS_PATTERN)) {
+    const displayName = match[1];
+    const propertyName = graph.displayNameIndex.get(displayName);
+
+    results.push({
+      node: nodeId,
+      parameter,
+      raw: match[0],
+      referencedNode: propertyName ? nodeIdentity(propertyName) : null,
+      fieldPath: null,
+      resolved: propertyName !== undefined,
+    });
+  }
+}
+
+function extractBinaryRefs(
+  expression: string,
+  parameter: string,
+  nodeId: NodeIdentity,
+  results: ExpressionReference[],
+): void {
+  for (const match of expression.matchAll(BINARY_PATTERN)) {
+    results.push({
+      node: nodeId,
+      parameter,
+      raw: match[0],
+      referencedNode: null,
+      fieldPath: match[1] ?? match[2] ?? null,
+      resolved: false, // Binary data can't be statically analyzed for json shape
+    });
+  }
+}
+
 function extractUnresolvableRefs(
   expression: string,
   parameter: string,
@@ -257,9 +316,7 @@ function extractUnresolvableRefs(
   results: ExpressionReference[],
 ): void {
   // $fromAI() — AI-generated parameter, cannot be statically resolved
-  FROM_AI_PATTERN.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = FROM_AI_PATTERN.exec(expression)) !== null) {
+  for (const match of expression.matchAll(FROM_AI_PATTERN)) {
     results.push({
       node: nodeId,
       parameter,
@@ -271,8 +328,7 @@ function extractUnresolvableRefs(
   }
 
   // $json[variable] — dynamic bracket access (not a string literal)
-  DYNAMIC_BRACKET_PATTERN.lastIndex = 0;
-  while ((match = DYNAMIC_BRACKET_PATTERN.exec(expression)) !== null) {
+  for (const match of expression.matchAll(DYNAMIC_BRACKET_PATTERN)) {
     results.push({
       node: nodeId,
       parameter,
@@ -291,7 +347,9 @@ function extractUnresolvableRefs(
  */
 function isInsideExplicitContext(textBefore: string): boolean {
   // Check if the $json is preceded by .json context from an explicit ref
-  return /\)\s*\.json$/.test(textBefore) ||
+  return (
+    /\)\s*\.json$/.test(textBefore) ||
     /\.item\s*\.json$/.test(textBefore) ||
-    /\]\s*\.json$/.test(textBefore);
+    /\]\s*\.json$/.test(textBefore)
+  );
 }

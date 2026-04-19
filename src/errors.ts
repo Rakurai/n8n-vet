@@ -7,16 +7,25 @@
  */
 
 import { ZodError } from 'zod';
-import { MalformedWorkflowError, ConfigurationError } from './static-analysis/errors.js';
-import { ExecutionConfigError } from './execution/errors.js';
+import { SynthesisError } from './diagnostics/synthesize.js';
+import {
+  ExecutionConfigError,
+  ExecutionInfrastructureError,
+  ExecutionPreconditionError,
+} from './execution/errors.js';
+import { ConfigurationError, MalformedWorkflowError } from './static-analysis/errors.js';
+import { TrustPersistenceError } from './trust/errors.js';
 
 // ── McpError ─────────────────────────────────────────────────────
 
-/** The four error categories surfaced to tool consumers. */
+/** Error categories surfaced to tool consumers. */
 export type McpErrorType =
   | 'workflow_not_found'
   | 'parse_error'
   | 'configuration_error'
+  | 'infrastructure_error'
+  | 'trust_error'
+  | 'precondition_error'
   | 'internal_error';
 
 /** Typed tool-level error returned in the response envelope. */
@@ -28,20 +37,7 @@ export interface McpError {
 // ── McpResponse ──────────────────────────────────────────────────
 
 /** Response envelope wrapping all MCP tool and CLI command outputs. */
-export type McpResponse<T> =
-  | { success: true; data: T }
-  | { success: false; error: McpError };
-
-// ── Error mapping ────────────────────────────────────────────────
-
-/** Is the error an ENOENT (file not found) from the filesystem? */
-function isEnoent(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    'code' in error &&
-    (error as NodeJS.ErrnoException).code === 'ENOENT'
-  );
-}
+export type McpResponse<T> = { success: true; data: T } | { success: false; error: McpError };
 
 /**
  * Map a domain error to an McpError for the response envelope.
@@ -50,11 +46,13 @@ function isEnoent(error: unknown): boolean {
  * and translated. Internal code lets errors propagate.
  */
 export function mapToMcpError(error: unknown): McpError {
-  if (isEnoent(error)) {
-    return {
-      type: 'workflow_not_found',
-      message: (error as Error).message,
-    };
+  // ENOENT — inline check (called only here)
+  if (
+    error instanceof Error &&
+    'code' in error &&
+    (error as NodeJS.ErrnoException).code === 'ENOENT'
+  ) {
+    return { type: 'workflow_not_found', message: (error as Error).message };
   }
 
   if (error instanceof MalformedWorkflowError) {
@@ -67,6 +65,22 @@ export function mapToMcpError(error: unknown): McpError {
 
   if (error instanceof ConfigurationError || error instanceof ExecutionConfigError) {
     return { type: 'configuration_error', message: error.message };
+  }
+
+  if (error instanceof ExecutionInfrastructureError) {
+    return { type: 'infrastructure_error', message: error.message };
+  }
+
+  if (error instanceof TrustPersistenceError) {
+    return { type: 'trust_error', message: error.message };
+  }
+
+  if (error instanceof ExecutionPreconditionError) {
+    return { type: 'precondition_error', message: error.message };
+  }
+
+  if (error instanceof SynthesisError) {
+    return { type: 'internal_error', message: error.message };
   }
 
   if (error instanceof Error) {

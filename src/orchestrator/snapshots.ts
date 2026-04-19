@@ -9,8 +9,11 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import type { WorkflowGraph, GraphNode, Edge, NodeClassification } from '../types/graph.js';
-import type { WorkflowSnapshot, SerializedGraphNode, SerializedEdge } from './types.js';
+import type { WorkflowAST } from '@n8n-as-code/transformer';
+import type { Edge, GraphNode, WorkflowGraph } from '../types/graph.js';
+import type { NodeIdentity } from '../types/identity.js';
+import { nodeIdentity } from '../types/identity.js';
+import type { SerializedEdge, SerializedGraphNode, WorkflowSnapshot } from './types.js';
 
 const SNAPSHOTS_SUBDIR = 'snapshots';
 const DEFAULT_SNAPSHOTS_DIR = '.n8n-vet/snapshots';
@@ -56,6 +59,7 @@ function resolveSnapshotsDir(): string {
 function serializeGraph(workflowId: string, graph: WorkflowGraph): WorkflowSnapshot {
   const nodes: SerializedGraphNode[] = [];
   for (const node of graph.nodes.values()) {
+    const nodeAst = graph.ast.nodes.find((n) => n.propertyName === node.name);
     nodes.push({
       name: node.name,
       displayName: node.displayName,
@@ -65,6 +69,9 @@ function serializeGraph(workflowId: string, graph: WorkflowGraph): WorkflowSnaps
       credentials: node.credentials,
       disabled: node.disabled,
       classification: node.classification,
+      retryOnFail: nodeAst?.retryOnFail ?? false,
+      executeOnce: nodeAst?.executeOnce ?? false,
+      onError: nodeAst?.onError ?? null,
     });
   }
 
@@ -98,46 +105,54 @@ function serializeEdge(edge: Edge): SerializedEdge {
 }
 
 function deserializeGraph(snapshot: WorkflowSnapshot): WorkflowGraph {
-  const nodes = new Map<string, GraphNode>();
-  const displayNameIndex = new Map<string, string>();
+  const nodes = new Map<NodeIdentity, GraphNode>();
+  const displayNameIndex = new Map<string, NodeIdentity>();
 
   for (const sn of snapshot.nodes) {
-    nodes.set(sn.name, {
-      name: sn.name,
+    const name = nodeIdentity(sn.name);
+    nodes.set(name, {
+      name,
       displayName: sn.displayName,
       type: sn.type,
       typeVersion: sn.typeVersion,
       parameters: sn.parameters,
       credentials: sn.credentials,
       disabled: sn.disabled,
-      classification: sn.classification as NodeClassification,
+      classification: sn.classification,
     });
-    displayNameIndex.set(sn.displayName, sn.name);
+    displayNameIndex.set(sn.displayName, name);
   }
 
-  const forward = new Map<string, Edge[]>();
+  const forward = new Map<NodeIdentity, Edge[]>();
   for (const [key, edges] of Object.entries(snapshot.forward)) {
-    forward.set(key, edges.map(deserializeEdge));
+    forward.set(nodeIdentity(key), edges.map(deserializeEdge));
   }
 
-  const backward = new Map<string, Edge[]>();
+  const backward = new Map<NodeIdentity, Edge[]>();
   for (const [key, edges] of Object.entries(snapshot.backward)) {
-    backward.set(key, edges.map(deserializeEdge));
+    backward.set(nodeIdentity(key), edges.map(deserializeEdge));
   }
 
-  // Snapshot graphs have no AST — provide a minimal placeholder.
-  // This is sufficient for computeChangeSet which only inspects nodes and adjacency.
-  const ast = { nodes: [], connections: [] } as unknown as import('@n8n-as-code/transformer').WorkflowAST;
+  // Snapshot graphs have no full AST — reconstruct stub AST nodes carrying
+  // execution settings so computeContentHash and executionSettingsChanged work.
+  const astNodes = snapshot.nodes.map((sn) => ({
+    propertyName: sn.name,
+    position: [0, 0] as [number, number],
+    retryOnFail: sn.retryOnFail ?? false,
+    executeOnce: sn.executeOnce ?? false,
+    onError: sn.onError ?? null,
+  }));
+  const ast = { nodes: astNodes, connections: [] } as unknown as WorkflowAST;
 
   return { nodes, forward, backward, displayNameIndex, ast };
 }
 
 function deserializeEdge(se: SerializedEdge): Edge {
   return {
-    from: se.from,
+    from: nodeIdentity(se.from),
     fromOutput: se.fromOutput,
     isError: se.isError,
-    to: se.to,
+    to: nodeIdentity(se.to),
     toInput: se.toInput,
   };
 }

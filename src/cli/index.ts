@@ -6,18 +6,19 @@
  * Commands: validate, trust, explain
  */
 
+import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { buildDeps } from '../deps.js';
-import { runValidate, runTrust, runExplain } from './commands.js';
-import type { ValidateOptions, ExplainOptions } from './commands.js';
+import type { NodeIdentity } from '../types/identity.js';
+import type { AgentTarget, ValidationLayer } from '../types/target.js';
+import { runExplain, runTrust, runValidate } from './commands.js';
+import type { ExplainOptions, ValidateOptions } from './commands.js';
 import {
   formatDiagnosticSummary,
-  formatTrustStatus,
   formatGuardrailExplanation,
   formatMcpError,
+  formatTrustStatus,
 } from './format.js';
-import type { AgentTarget, ValidationLayer } from '../types/target.js';
-import type { NodeIdentity } from '../types/identity.js';
 
 // ── Usage ───────────────────────────────────────────────────────
 
@@ -38,7 +39,10 @@ Options:
 
 // ── Argument parsing ────────────────────────────────────────────
 
-function resolveTarget(targetKind: string | undefined, nodesArg: string | undefined): AgentTarget | string {
+function resolveTarget(
+  targetKind: string | undefined,
+  nodesArg: string | undefined,
+): AgentTarget | string {
   const kind = targetKind ?? 'changed';
 
   if (kind !== 'nodes' && kind !== 'changed' && kind !== 'workflow') {
@@ -54,7 +58,11 @@ function resolveTarget(targetKind: string | undefined, nodesArg: string | undefi
   }
 
   if (kind === 'nodes') {
-    const names = nodesArg!.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    const names =
+      nodesArg
+        ?.split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0) ?? [];
     if (names.length === 0) {
       return '--nodes must contain at least one non-empty node name';
     }
@@ -75,6 +83,7 @@ function resolveLayer(raw: string | undefined): ValidationLayer | string {
 // ── Main ────────────────────────────────────────────────────────
 
 export async function main(argv: string[] = process.argv.slice(2)): Promise<number> {
+  // biome-ignore lint/suspicious/noImplicitAnyLet: parseArgs return type is complex and inferred at assignment
   let parsed;
   try {
     parsed = parseArgs({
@@ -89,8 +98,10 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<numb
         json: { type: 'boolean', default: false },
       },
     });
-  } catch {
-    process.stderr.write(USAGE + '\n');
+  } catch (err) {
+    process.stderr.write(
+      `${err instanceof Error ? err.message : 'Invalid arguments'}\n\n${USAGE}\n`,
+    );
     return 2;
   }
 
@@ -100,7 +111,17 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<numb
   const jsonMode = values.json ?? false;
 
   if (!command || !workflowPath) {
-    process.stderr.write(USAGE + '\n');
+    process.stderr.write(`${USAGE}\n`);
+    return 2;
+  }
+
+  // Path traversal validation
+  const resolvedPath = resolve(workflowPath);
+  const root = process.cwd();
+  if (!resolvedPath.startsWith(`${root}/`) && resolvedPath !== root) {
+    process.stderr.write(
+      `Error: path traversal rejected — '${workflowPath}' resolves outside project root\n`,
+    );
     return 2;
   }
 
@@ -109,13 +130,13 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<numb
   if (command === 'validate') {
     const target = resolveTarget(values.target, values.nodes);
     if (typeof target === 'string') {
-      process.stderr.write(target + '\n');
+      process.stderr.write(`${target}\n`);
       return 2;
     }
 
     const layer = resolveLayer(values.layer);
     if (typeof layer === 'string') {
-      process.stderr.write(layer + '\n');
+      process.stderr.write(`${layer}\n`);
       return 2;
     }
 
@@ -129,15 +150,15 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<numb
     const result = await runValidate(workflowPath, options, deps);
 
     if (jsonMode) {
-      process.stdout.write(JSON.stringify(result) + '\n');
+      process.stdout.write(`${JSON.stringify(result)}\n`);
       return result.success ? 0 : 1;
     }
 
     if (result.success) {
-      process.stdout.write(formatDiagnosticSummary(result.data) + '\n');
+      process.stdout.write(`${formatDiagnosticSummary(result.data)}\n`);
       return 0;
     }
-    process.stderr.write(formatMcpError(result.error) + '\n');
+    process.stderr.write(`${formatMcpError(result.error)}\n`);
     return 1;
   }
 
@@ -145,28 +166,28 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<numb
     const result = await runTrust(workflowPath, deps);
 
     if (jsonMode) {
-      process.stdout.write(JSON.stringify(result) + '\n');
+      process.stdout.write(`${JSON.stringify(result)}\n`);
       return result.success ? 0 : 1;
     }
 
     if (result.success) {
-      process.stdout.write(formatTrustStatus(result.data) + '\n');
+      process.stdout.write(`${formatTrustStatus(result.data)}\n`);
       return 0;
     }
-    process.stderr.write(formatMcpError(result.error) + '\n');
+    process.stderr.write(`${formatMcpError(result.error)}\n`);
     return 1;
   }
 
   if (command === 'explain') {
     const target = resolveTarget(values.target, values.nodes);
     if (typeof target === 'string') {
-      process.stderr.write(target + '\n');
+      process.stderr.write(`${target}\n`);
       return 2;
     }
 
     const layer = resolveLayer(values.layer);
     if (typeof layer === 'string') {
-      process.stderr.write(layer + '\n');
+      process.stderr.write(`${layer}\n`);
       return 2;
     }
 
@@ -174,15 +195,15 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<numb
     const result = await runExplain(workflowPath, options, deps);
 
     if (jsonMode) {
-      process.stdout.write(JSON.stringify(result) + '\n');
+      process.stdout.write(`${JSON.stringify(result)}\n`);
       return result.success ? 0 : 1;
     }
 
     if (result.success) {
-      process.stdout.write(formatGuardrailExplanation(result.data) + '\n');
+      process.stdout.write(`${formatGuardrailExplanation(result.data)}\n`);
       return 0;
     }
-    process.stderr.write(formatMcpError(result.error) + '\n');
+    process.stderr.write(`${formatMcpError(result.error)}\n`);
     return 1;
   }
 
@@ -195,7 +216,7 @@ import { fileURLToPath } from 'node:url';
 
 const thisFile = fileURLToPath(import.meta.url);
 if (process.argv[1] === thisFile) {
-  main().then((code) => {
+  void main().then((code) => {
     process.exitCode = code;
   });
 }

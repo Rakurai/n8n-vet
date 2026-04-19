@@ -8,6 +8,7 @@
  */
 
 import { isTrusted } from '../trust/trust.js';
+import type { GuardrailEvidence } from '../types/guardrail.js';
 import type { NodeIdentity } from '../types/identity.js';
 import type { ValidationTarget } from '../types/target.js';
 import { assembleEvidence } from './evidence.js';
@@ -20,12 +21,16 @@ import { NARROW_MAX_CHANGED_RATIO, NARROW_MIN_TARGET_NODES } from './types.js';
  * Returns a `ValidationTarget` with `kind: 'slice'` when narrowing is
  * applicable, or null when the precondition fails or narrowing would
  * not reduce scope.
+ *
+ * Accepts optional pre-computed evidence to avoid redundant recomputation.
  */
-export function computeNarrowedTarget(input: EvaluationInput): ValidationTarget | null {
+export function computeNarrowedTarget(
+  input: EvaluationInput,
+  precomputedEvidence?: GuardrailEvidence,
+): ValidationTarget | null {
   const { targetNodes, graph, trustState, currentHashes } = input;
 
-  // Assemble evidence to get changedNodes (trust-breaking changes within target)
-  const evidence = assembleEvidence(input);
+  const evidence = precomputedEvidence ?? assembleEvidence(input);
   const changedNodes = evidence.changedNodes;
 
   // Precondition: target must be large enough and changes must be narrow

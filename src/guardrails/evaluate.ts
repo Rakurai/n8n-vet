@@ -5,14 +5,14 @@
  * actions. First non-proceed action wins. Every decision includes fully
  * populated GuardrailEvidence.
  *
- * Evaluation order (spec contract):
+ * Evaluation order (STRATEGY.md guardrail action order):
  *   1. Force bypass
- *   2. Empty target → refuse
- *   3. Identical rerun → refuse (overridable)
- *   4. Redirect execution → static
- *   5. Narrow broad scope
- *   6. DeFlaker warn
- *   7. Broad-target warn
+ *   2. Empty target → refuse (precondition)
+ *   3. Redirect execution → static
+ *   4. Narrow broad scope
+ *   5. DeFlaker warn
+ *   6. Broad-target warn
+ *   7. Identical rerun → refuse (overridable)
  *   8. Proceed
  */
 
@@ -43,7 +43,7 @@ export function evaluate(input: EvaluationInput): GuardrailDecision {
     };
   }
 
-  // Step 2: Empty target
+  // Step 2: Empty target (precondition — not a guardrail action)
   if (input.targetNodes.size === 0) {
     return {
       action: 'refuse',
@@ -53,23 +53,7 @@ export function evaluate(input: EvaluationInput): GuardrailDecision {
     };
   }
 
-  // Step 3: Identical rerun → refuse
-  const rerunAssessment = getRerunAssessment(
-    input.trustState,
-    [...input.targetNodes],
-    input.currentHashes,
-    input.fixtureHash,
-  );
-  if (rerunAssessment.isLowValue) {
-    return {
-      action: 'refuse',
-      explanation: `Identical rerun — ${rerunAssessment.reason}. Use force to override.`,
-      evidence,
-      overridable: true,
-    };
-  }
-
-  // Step 4: Redirect execution → static
+  // Step 3: Redirect execution → static
   if (input.layer !== 'static') {
     const escalation = assessEscalationTriggers(input);
     if (!escalation.triggered) {
@@ -84,8 +68,8 @@ export function evaluate(input: EvaluationInput): GuardrailDecision {
     }
   }
 
-  // Step 5: Narrow broad scope
-  const narrowedTarget = computeNarrowedTarget(input);
+  // Step 4: Narrow broad scope
+  const narrowedTarget = computeNarrowedTarget(input, evidence);
   if (narrowedTarget) {
     return {
       action: 'narrow',
@@ -96,7 +80,7 @@ export function evaluate(input: EvaluationInput): GuardrailDecision {
     };
   }
 
-  // Step 6: DeFlaker warn
+  // Step 5: DeFlaker warn
   const priorContext = extractPriorRunContext(input.priorSummary);
   if (priorContext) {
     const changedSet = new Set(evidence.changedNodes);
@@ -111,11 +95,27 @@ export function evaluate(input: EvaluationInput): GuardrailDecision {
     }
   }
 
-  // Step 7: Broad-target warn
+  // Step 6: Broad-target warn
   if (input.targetNodes.size / input.graph.nodes.size > BROAD_TARGET_WARN_RATIO) {
     return {
       action: 'warn',
       explanation: `Target covers ${Math.round((input.targetNodes.size / input.graph.nodes.size) * 100)}% of workflow nodes — consider narrowing to the changed region.`,
+      evidence,
+      overridable: true,
+    };
+  }
+
+  // Step 7: Identical rerun → refuse
+  const rerunAssessment = getRerunAssessment(
+    input.trustState,
+    [...input.targetNodes],
+    input.currentHashes,
+    input.fixtureHash,
+  );
+  if (rerunAssessment.isLowValue) {
+    return {
+      action: 'refuse',
+      explanation: `Identical rerun — ${rerunAssessment.reason}. Use force to override.`,
       evidence,
       overridable: true,
     };

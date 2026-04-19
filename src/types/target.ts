@@ -3,7 +3,7 @@
  */
 
 import type { NodeIdentity } from './identity.js';
-import type { SliceDefinition, PathDefinition } from './slice.js';
+import type { PathDefinition, SliceDefinition } from './slice.js';
 
 /**
  * Agent-facing target specification — what MCP/CLI tools accept as input.

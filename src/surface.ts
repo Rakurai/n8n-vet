@@ -6,18 +6,18 @@
  * output shapes. No business logic — just subsystem orchestration.
  */
 
+import type { EvaluationInput } from './guardrails/types.js';
 import { deriveWorkflowId } from './orchestrator/types.js';
-import { computeContentHash } from './trust/hash.js';
 import type { OrchestratorDeps } from './orchestrator/types.js';
+import { computeContentHash } from './trust/hash.js';
 import type { NodeIdentity } from './types/identity.js';
-import type { AgentTarget, ValidationLayer } from './types/target.js';
 import type {
+  GuardrailExplanation,
   TrustStatusReport,
   TrustedNodeInfo,
   UntrustedNodeInfo,
-  GuardrailExplanation,
 } from './types/surface.js';
-import type { EvaluationInput } from './guardrails/types.js';
+import type { AgentTarget, ValidationLayer } from './types/target.js';
 
 // ── Trust status composition ─────────────────────────────────────
 
@@ -36,8 +36,7 @@ export async function buildTrustStatusReport(
   const untrustedNodes: UntrustedNodeInfo[] = [];
 
   for (const [name, node] of graph.nodes) {
-    const nodeId = name as NodeIdentity;
-    const record = trustState.nodes.get(nodeId);
+    const record = trustState.nodes.get(name);
 
     if (!record) {
       untrustedNodes.push({ name, reason: 'no prior validation' });
@@ -60,7 +59,7 @@ export async function buildTrustStatusReport(
   }
 
   const changedSinceLastValidation = changeSet
-    ? [...changeSet.added, ...changeSet.modified.map(m => m.node), ...changeSet.removed]
+    ? [...changeSet.added, ...changeSet.modified.map((m) => m.node), ...changeSet.removed]
     : [];
 
   return {
@@ -68,7 +67,7 @@ export async function buildTrustStatusReport(
     totalNodes: graph.nodes.size,
     trustedNodes,
     untrustedNodes,
-    changedSinceLastValidation: changedSinceLastValidation as string[],
+    changedSinceLastValidation,
   };
 }
 
@@ -87,34 +86,36 @@ export async function buildGuardrailExplanation(
   const snapshot = deps.loadSnapshot(workflowId);
   const changeSet = snapshot
     ? deps.computeChangeSet(snapshot, graph)
-    : { added: [...graph.nodes.keys()] as NodeIdentity[], removed: [], modified: [], unchanged: [] };
+    : {
+        added: [...graph.nodes.keys()] as NodeIdentity[],
+        removed: [],
+        modified: [],
+        unchanged: [],
+      };
 
   let targetNodes: Set<NodeIdentity>;
-  let resolvedNodeNames: string[];
+  let resolvedNodeNames: NodeIdentity[];
   let automatic: boolean;
 
   if (target.kind === 'nodes') {
     targetNodes = new Set(target.nodes);
-    resolvedNodeNames = target.nodes as string[];
+    resolvedNodeNames = [...target.nodes];
     automatic = false;
   } else if (target.kind === 'workflow') {
-    const allNodes = [...graph.nodes.keys()] as NodeIdentity[];
+    const allNodes = [...graph.nodes.keys()];
     targetNodes = new Set(allNodes);
-    resolvedNodeNames = allNodes as string[];
+    resolvedNodeNames = allNodes;
     automatic = false;
   } else {
-    const changedNodes = [
-      ...changeSet.added,
-      ...changeSet.modified.map(m => m.node),
-    ];
+    const changedNodes = [...changeSet.added, ...changeSet.modified.map((m) => m.node)];
     targetNodes = new Set(changedNodes);
-    resolvedNodeNames = changedNodes as string[];
+    resolvedNodeNames = changedNodes;
     automatic = true;
   }
 
   const currentHashes = new Map<NodeIdentity, string>();
   for (const nodeId of targetNodes) {
-    const node = graph.nodes.get(nodeId as string);
+    const node = graph.nodes.get(nodeId);
     if (node) {
       currentHashes.set(nodeId, computeContentHash(node, graph.ast));
     }

@@ -917,3 +917,36 @@ describe('interpret() — error conditions (T022)', () => {
     expect(result.meta.durationMs).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe('interpret() — MCP smoke test path', () => {
+  it('dispatches via executeSmoke when mcpAvailable and target=workflow', async () => {
+    const callTool = vi.fn();
+    const deps = createMockDeps({
+      detectCapabilities: vi.fn().mockResolvedValue({
+        level: 'full',
+        restAvailable: true,
+        mcpAvailable: true,
+        mcpTools: ['test_workflow'],
+      }),
+    });
+
+    const request: ValidationRequest = {
+      workflowPath: '/test/workflow.ts',
+      target: { kind: 'workflow' },
+      layer: 'execution',
+      force: false,
+      pinData: null,
+      destinationNode: null,
+      destinationMode: 'inclusive',
+      callTool,
+    };
+
+    await interpret(request, deps);
+
+    expect(deps.executeSmoke).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Object),
+      callTool,
+    );
+  });
+});

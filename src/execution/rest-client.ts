@@ -14,86 +14,101 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { z } from 'zod';
 
-import type {
-  ExplicitCredentials,
-  ExecutionResult,
-  ExecutionStatus,
-  PinData,
-  ResolvedCredentials,
-} from './types.js';
+import type { NodeIdentity } from '../types/identity.js';
 import {
   ExecutionConfigError,
   ExecutionInfrastructureError,
   ExecutionPreconditionError,
 } from './errors.js';
 import { withExecutionLock } from './lock.js';
+import type { PollStatusResult, PollingStrategy } from './poll.js';
 import { extractExecutionData } from './results.js';
 import type { RawResultData } from './results.js';
-import type { PollingStrategy, PollStatusResult } from './poll.js';
-import type { NodeIdentity } from '../types/identity.js';
+import type {
+  ExecutionResult,
+  ExecutionStatus,
+  ExplicitCredentials,
+  PinData,
+  ResolvedCredentials,
+} from './types.js';
 import type { ExecutionData } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas — REST API response boundaries (T005)
 // ---------------------------------------------------------------------------
 
-/** Schema for POST /workflows/:id/run response. */
+/** Schema for POST /workflows/:id/run response (flat, no data wrapper). */
 export const TriggerExecutionResponseSchema = z.object({
-  data: z.object({
-    executionId: z.string(),
-  }),
+  executionId: z.string(),
 });
 
-/** Schema for GET /executions/:id response (status-only fields). */
+/** Schema for GET /executions/:id response (flat, status-only fields). */
 export const ExecutionStatusResponseSchema = z.object({
-  data: z.object({
-    id: z.string(),
-    finished: z.boolean(),
-    mode: z.string(),
-    status: z.string(),
-    startedAt: z.string(),
-    stoppedAt: z.string().nullable(),
-  }),
+  id: z.string(),
+  finished: z.boolean(),
+  mode: z.string(),
+  status: z.string(),
+  startedAt: z.string(),
+  stoppedAt: z.string().nullable(),
 });
 
-/** Schema for GET /executions/:id?includeData=true response. */
+/** Schema for GET /executions/:id?includeData=true response (flat). */
 export const ExecutionDataResponseSchema = ExecutionStatusResponseSchema.extend({
-  data: ExecutionStatusResponseSchema.shape.data.extend({
-    data: z.object({
-      resultData: z.object({
-        runData: z.record(z.array(z.object({
-          startTime: z.number(),
-          executionTime: z.number(),
-          executionStatus: z.string().optional(),
-          error: z.object({
-            message: z.string(),
-            description: z.string().nullable().optional(),
-            name: z.string().optional(),
-            node: z.object({ name: z.string() }).optional(),
-            httpCode: z.string().optional(),
-            context: z.record(z.unknown()).optional(),
-          }).optional().nullable(),
-          source: z.array(z.object({
-            previousNode: z.string(),
-            previousNodeOutput: z.number().optional(),
-            previousNodeRun: z.number().optional(),
-          }).nullable()).optional().nullable(),
-          hints: z.array(z.object({
-            message: z.string(),
-            level: z.string().optional(),
-          })).optional(),
-          data: z.record(z.unknown()).optional(),
-        }))),
-        error: z.object({
+  data: z.object({
+    resultData: z.object({
+      runData: z.record(
+        z.array(
+          z.object({
+            startTime: z.number(),
+            executionTime: z.number(),
+            executionStatus: z.string().optional(),
+            error: z
+              .object({
+                message: z.string(),
+                description: z.string().nullable().optional(),
+                name: z.string().optional(),
+                node: z.object({ name: z.string() }).optional(),
+                httpCode: z.string().optional(),
+                context: z.record(z.unknown()).optional(),
+              })
+              .optional()
+              .nullable(),
+            source: z
+              .array(
+                z
+                  .object({
+                    previousNode: z.string(),
+                    previousNodeOutput: z.number().optional(),
+                    previousNodeRun: z.number().optional(),
+                  })
+                  .nullable(),
+              )
+              .optional()
+              .nullable(),
+            hints: z
+              .array(
+                z.object({
+                  message: z.string(),
+                  level: z.string().optional(),
+                }),
+              )
+              .optional(),
+            data: z.record(z.unknown()).optional(),
+          }),
+        ),
+      ),
+      error: z
+        .object({
           message: z.string(),
           description: z.string().nullable().optional(),
           name: z.string().optional(),
           node: z.object({ name: z.string() }).optional(),
           httpCode: z.string().optional(),
           context: z.record(z.unknown()).optional(),
-        }).optional().nullable(),
-        lastNodeExecuted: z.string().optional().nullable(),
-      }),
+        })
+        .optional()
+        .nullable(),
+      lastNodeExecuted: z.string().optional().nullable(),
     }),
   }),
 });
@@ -114,17 +129,23 @@ export const WorkflowResponseSchema = z.object({
 /** Schema for n8nac-config.json project config. */
 const N8nacProjectConfigSchema = z.object({
   activeInstance: z.string().optional(),
-  instances: z.record(z.object({
-    host: z.string().optional(),
-    apiKey: z.string().optional(),
-  })).optional(),
+  instances: z
+    .record(
+      z.object({
+        host: z.string().optional(),
+        apiKey: z.string().optional(),
+      }),
+    )
+    .optional(),
 });
 
 /** Schema for ~/.config/n8nac/credentials.json global credential store. */
-const N8nacGlobalCredentialsSchema = z.record(z.object({
-  host: z.string().optional(),
-  apiKey: z.string().optional(),
-}));
+const N8nacGlobalCredentialsSchema = z.record(
+  z.object({
+    host: z.string().optional(),
+    apiKey: z.string().optional(),
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // Credential Resolution (T004)
@@ -150,8 +171,8 @@ export async function resolveCredentials(
   let apiKey = explicit?.apiKey;
 
   // Layer 2: Environment variables
-  host ??= process.env['N8N_HOST'];
-  apiKey ??= process.env['N8N_API_KEY'];
+  host ??= process.env.N8N_HOST;
+  apiKey ??= process.env.N8N_API_KEY;
 
   // Layer 3: n8nac project config
   if (!host || !apiKey) {
@@ -178,7 +199,7 @@ export async function resolveCredentials(
     );
   }
 
-  return { host: host!, apiKey: apiKey! };
+  return { host: host as string, apiKey: apiKey as string };
 }
 
 // ---------------------------------------------------------------------------
@@ -205,8 +226,11 @@ async function readProjectConfig(): Promise<PartialCredentials | undefined> {
     const instance = config.instances[instanceName];
     if (!instance) return undefined;
     return { host: instance.host, apiKey: instance.apiKey };
-  } catch {
-    return undefined;
+  } catch (err) {
+    if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return undefined;
+    }
+    throw err;
   }
 }
 
@@ -222,8 +246,11 @@ async function readGlobalCredentials(): Promise<PartialCredentials | undefined> 
     const first = entries[0];
     if (!first) return undefined;
     return { host: first.host, apiKey: first.apiKey };
-  } catch {
-    return undefined;
+  } catch (err) {
+    if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return undefined;
+    }
+    throw err;
   }
 }
 
@@ -311,7 +338,7 @@ export async function executeBounded(
     const parsed = TriggerExecutionResponseSchema.parse(json);
 
     return {
-      executionId: parsed.data.executionId,
+      executionId: parsed.executionId,
       status: 'running' as ExecutionStatus,
       error: null,
       partial: true,
@@ -363,8 +390,8 @@ export async function getExecutionStatus(
   const parsed = ExecutionStatusResponseSchema.parse(json);
 
   return {
-    status: parsed.data.status as ExecutionStatus,
-    finished: parsed.data.finished,
+    status: parsed.status as ExecutionStatus,
+    finished: parsed.finished,
   };
 }
 
@@ -392,8 +419,14 @@ export async function getExecutionData(
   }
 
   if (!response.ok) {
+    if (response.status === 404) {
+      throw new ExecutionInfrastructureError(
+        'execution-not-found',
+        `Execution ${executionId} not found (HTTP 404)`,
+      );
+    }
     throw new ExecutionInfrastructureError(
-      'execution-not-found',
+      'unreachable',
       `Failed to retrieve execution data for ${executionId} (HTTP ${response.status})`,
     );
   }
@@ -416,11 +449,9 @@ export async function getExecutionData(
  * Note: REST does not support nodeNames filtering or truncateData —
  * all node data is returned and filtered client-side by extractExecutionData.
  */
-export function createRestPollingStrategy(
-  credentials: ResolvedCredentials,
-): PollingStrategy {
+export function createRestPollingStrategy(credentials: ResolvedCredentials): PollingStrategy {
   return {
-    async checkStatus(executionId: string): Promise<PollStatusResult> {
+    checkStatus(executionId: string): Promise<PollStatusResult> {
       return getExecutionStatus(executionId, credentials);
     },
 
@@ -430,14 +461,10 @@ export function createRestPollingStrategy(
       _truncateData: number,
     ): Promise<ExecutionData> {
       const response = await getExecutionData(executionId, credentials);
-      const resultData = response.data.data.resultData;
-      const status = response.data.status as ExecutionStatus;
+      const resultData = response.data.resultData;
+      const status = response.status as ExecutionStatus;
 
-      return extractExecutionData(
-        resultData as RawResultData,
-        status,
-        nodeNames as string[],
-      );
+      return extractExecutionData(resultData as RawResultData, status, nodeNames as string[]);
     },
   };
 }

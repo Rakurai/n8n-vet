@@ -188,7 +188,7 @@ describe('MCP server — validate tool', () => {
     const server = createServer(deps);
     const validate = getToolHandler(server, 'validate');
 
-    const result = await validate({ workflowPath: '/test/wf.ts' }) as { content: Array<{ type: string; text: string }> };
+    const result = await validate({ kind: 'changed', workflowPath: 'test/wf.ts' }) as { content: Array<{ type: string; text: string }> };
     const envelope = parseEnvelope(result);
 
     expect(envelope.success).toBe(true);
@@ -203,10 +203,10 @@ describe('MCP server — validate tool', () => {
     const server = createServer(deps);
     const validate = getToolHandler(server, 'validate');
 
-    await validate({ workflowPath: '/test/wf.ts' });
+    await validate({ kind: 'changed', workflowPath: 'test/wf.ts' });
 
     // interpret is called internally; check that buildGraph was called (pipeline ran)
-    expect(deps.parseWorkflowFile).toHaveBeenCalledWith('/test/wf.ts');
+    expect(deps.parseWorkflowFile).toHaveBeenCalledWith('test/wf.ts');
   });
 
   it('returns error-status diagnostic when parseWorkflowFile fails', async () => {
@@ -217,7 +217,7 @@ describe('MCP server — validate tool', () => {
     const server = createServer(deps);
     const validate = getToolHandler(server, 'validate');
 
-    const result = await validate({ workflowPath: '/bad.ts' }) as { content: Array<{ type: string; text: string }> };
+    const result = await validate({ kind: 'changed', workflowPath: 'bad.ts' }) as { content: Array<{ type: string; text: string }> };
     const envelope = parseEnvelope<DiagnosticSummary>(result);
 
     expect(envelope.success).toBe(true);
@@ -233,7 +233,7 @@ describe('MCP server — trust_status tool', () => {
     const server = createServer(deps);
     const trustStatus = getToolHandler(server, 'trust_status');
 
-    const result = await trustStatus({ workflowPath: '/test/wf.ts' }) as { content: Array<{ type: string; text: string }> };
+    const result = await trustStatus({ workflowPath: 'test/wf.ts' }) as { content: Array<{ type: string; text: string }> };
     const envelope = parseEnvelope(result);
 
     expect(envelope.success).toBe(true);
@@ -272,7 +272,7 @@ describe('MCP server — trust_status tool', () => {
     const server = createServer(deps);
     const trustStatus = getToolHandler(server, 'trust_status');
 
-    const result = await trustStatus({ workflowPath: '/test/wf.ts' }) as { content: Array<{ type: string; text: string }> };
+    const result = await trustStatus({ workflowPath: 'test/wf.ts' }) as { content: Array<{ type: string; text: string }> };
     const envelope = parseEnvelope(result);
 
     expect(envelope.success).toBe(true);
@@ -291,7 +291,7 @@ describe('MCP server — explain tool', () => {
     const server = createServer(deps);
     const explain = getToolHandler(server, 'explain');
 
-    const result = await explain({ workflowPath: '/test/wf.ts' }) as { content: Array<{ type: string; text: string }> };
+    const result = await explain({ workflowPath: 'test/wf.ts' }) as { content: Array<{ type: string; text: string }> };
     const envelope = parseEnvelope(result);
 
     expect(envelope.success).toBe(true);
@@ -312,7 +312,7 @@ describe('MCP server — explain tool', () => {
     const server = createServer(deps);
     const explain = getToolHandler(server, 'explain');
 
-    await explain({ workflowPath: '/test/wf.ts' });
+    await explain({ workflowPath: 'test/wf.ts' });
 
     expect(deps.persistTrustState).not.toHaveBeenCalled();
     expect(deps.recordValidation).not.toHaveBeenCalled();
@@ -325,8 +325,9 @@ describe('MCP server — explain tool', () => {
     const explain = getToolHandler(server, 'explain');
 
     const result = await explain({
-      workflowPath: '/test/wf.ts',
-      target: { kind: 'nodes', nodes: ['trigger'] },
+      workflowPath: 'test/wf.ts',
+      kind: 'nodes',
+      nodes: ['trigger'],
     }) as { content: Array<{ type: string; text: string }> };
 
     const envelope = parseEnvelope(result);
@@ -350,7 +351,7 @@ describe('MCP server — explain tool', () => {
     const server = createServer(deps);
     const explain = getToolHandler(server, 'explain');
 
-    const result = await explain({ workflowPath: '/test/wf.ts' }) as { content: Array<{ type: string; text: string }> };
+    const result = await explain({ workflowPath: 'test/wf.ts' }) as { content: Array<{ type: string; text: string }> };
     const envelope = parseEnvelope(result);
 
     expect(envelope.success).toBe(true);
@@ -369,8 +370,9 @@ describe('MCP server — error envelopes', () => {
     const validate = getToolHandler(server, 'validate');
 
     const result = await validate({
-      workflowPath: '/test/wf.ts',
-      target: { kind: 'nodes', nodes: [] },
+      kind: 'nodes',
+      workflowPath: 'test/wf.ts',
+      nodes: [],
     }) as { content: Array<{ type: string; text: string }> };
     const envelope = parseEnvelope<never>(result);
 
@@ -388,7 +390,7 @@ describe('MCP server — error envelopes', () => {
     const server = createServer(deps);
     const trustStatus = getToolHandler(server, 'trust_status');
 
-    const result = await trustStatus({ workflowPath: '/bad.ts' }) as { content: Array<{ type: string; text: string }> };
+    const result = await trustStatus({ workflowPath: 'bad.ts' }) as { content: Array<{ type: string; text: string }> };
     const envelope = parseEnvelope<never>(result);
 
     expect(envelope.success).toBe(false);
@@ -406,7 +408,7 @@ describe('MCP server — error envelopes', () => {
     const server = createServer(deps);
     const trustStatus = getToolHandler(server, 'trust_status');
 
-    const result = await trustStatus({ workflowPath: '/missing.ts' }) as { content: Array<{ type: string; text: string }> };
+    const result = await trustStatus({ workflowPath: 'missing.ts' }) as { content: Array<{ type: string; text: string }> };
     const envelope = parseEnvelope<never>(result);
 
     expect(envelope.success).toBe(false);
@@ -422,7 +424,7 @@ describe('MCP server — error envelopes', () => {
     const server = createServer(deps);
     const explain = getToolHandler(server, 'explain');
 
-    const result = await explain({ workflowPath: '/bad.ts' }) as { content: Array<{ type: string; text: string }> };
+    const result = await explain({ workflowPath: 'bad.ts' }) as { content: Array<{ type: string; text: string }> };
     const envelope = parseEnvelope<never>(result);
 
     expect(envelope.success).toBe(false);

@@ -187,4 +187,23 @@ describe('traceExpressions', () => {
     expect(dynamicRef!.resolved).toBe(false);
     expect(dynamicRef!.fieldPath).toBeNull();
   });
+
+  it('detects $json["bracket"] string literal access', () => {
+    const graph = makeGraph([
+      {
+        name: 'bracketNode',
+        displayName: 'Bracket Node',
+        type: 'n8n-nodes-base.set',
+        parameters: {
+          value: '={{ $json["myField"] }}',
+        },
+      },
+    ]);
+
+    const refs = traceExpressions(graph, [nodeIdentity('bracketNode')]);
+
+    expect(refs).toHaveLength(1);
+    expect(refs[0].fieldPath).toBe('myField');
+    expect(refs[0].resolved).toBe(true);
+  });
 });

@@ -49,14 +49,16 @@ describe('reconstructPath', () => {
       nodeResults: new Map([
         [
           nodeIdentity('test'),
-          {
-            executionIndex: 0,
-            status: 'success',
-            executionTimeMs: 5,
-            error: null,
-            source: null as unknown as { previousNodeOutput: number | null },
-            hints: [],
-          },
+          [
+            {
+              executionIndex: null as unknown as number,
+              status: 'success',
+              executionTimeMs: 5,
+              error: null,
+              source: null,
+              hints: [],
+            },
+          ],
         ],
       ]),
     };

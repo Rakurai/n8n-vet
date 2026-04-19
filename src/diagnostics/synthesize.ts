@@ -6,15 +6,15 @@
  * DiagnosticSummary.
  */
 
+import { z } from 'zod';
 import type { DiagnosticSummary } from '../types/diagnostic.js';
 import type { ValidationLayer } from '../types/target.js';
-import type { SynthesisInput } from './types.js';
-import { z } from 'zod';
-import { determineStatus } from './status.js';
-import { classifyStaticFindings, classifyExecutionErrors, orderErrors } from './errors.js';
 import { assignAnnotations } from './annotations.js';
+import { classifyExecutionErrors, classifyStaticFindings, orderErrors } from './errors.js';
 import { collectHints } from './hints.js';
 import { reconstructPath } from './path.js';
+import { determineStatus } from './status.js';
+import type { SynthesisInput } from './types.js';
 
 /** Typed error for synthesis-level validation failures. */
 export class SynthesisError extends Error {
@@ -42,9 +42,7 @@ export function synthesize(input: SynthesisInput): DiagnosticSummary {
   const status = determineStatus(staticFindings, executionData, guardrailDecisions);
 
   const staticErrors = classifyStaticFindings(staticFindings);
-  const executionErrors = executionData !== null
-    ? classifyExecutionErrors(executionData)
-    : [];
+  const executionErrors = executionData !== null ? classifyExecutionErrors(executionData) : [];
   const errors = orderErrors([...staticErrors, ...executionErrors]);
 
   const nodeAnnotations = assignAnnotations(
@@ -58,7 +56,11 @@ export function synthesize(input: SynthesisInput): DiagnosticSummary {
 
   const executedPath = reconstructPath(executionData);
 
-  const evidenceBasis = determineEvidenceBasis(staticFindings, executionData);
+  const evidenceBasis = determineEvidenceBasis(
+    staticFindings,
+    executionData,
+    input.staticAnalysisRan,
+  );
 
   return {
     schemaVersion: 1,
@@ -76,13 +78,15 @@ export function synthesize(input: SynthesisInput): DiagnosticSummary {
 }
 
 const SynthesisInputSchema = z.object({
-  staticFindings: z.array(z.object({
-    node: z.string().min(1),
-    kind: z.string(),
-    severity: z.enum(['error', 'warning']),
-    message: z.string(),
-    context: z.record(z.unknown()),
-  })),
+  staticFindings: z.array(
+    z.object({
+      node: z.string().min(1),
+      kind: z.string(),
+      severity: z.enum(['error', 'warning']),
+      message: z.string(),
+      context: z.record(z.unknown()),
+    }),
+  ),
   executionData: z.union([
     z.object({
       status: z.enum(['success', 'error', 'cancelled']),
@@ -95,13 +99,22 @@ const SynthesisInputSchema = z.object({
   trustState: z.object({
     nodes: z.instanceof(Map),
   }),
-  guardrailDecisions: z.array(z.object({
-    action: z.string(),
-    explanation: z.string(),
-  }).passthrough()),
+  guardrailDecisions: z.array(
+    z
+      .object({
+        action: z.string(),
+        explanation: z.string(),
+      })
+      .passthrough(),
+  ),
   resolvedTarget: z.object({
     description: z.string(),
-    nodes: z.array(z.string().min(1)).min(1, 'resolvedTarget.nodes must not be empty — a validation run with no nodes in scope is a caller bug.'),
+    nodes: z
+      .array(z.string().min(1))
+      .min(
+        1,
+        'resolvedTarget.nodes must not be empty — a validation run with no nodes in scope is a caller bug.',
+      ),
     automatic: z.boolean(),
   }),
   capabilities: z.object({
@@ -128,8 +141,11 @@ function validateInput(input: SynthesisInput): void {
 function determineEvidenceBasis(
   staticFindings: SynthesisInput['staticFindings'],
   executionData: SynthesisInput['executionData'],
+  staticAnalysisRan?: boolean,
 ): ValidationLayer {
-  if (executionData === null) return 'static';
-  if (staticFindings.length === 0) return 'execution';
-  return 'both';
+  const staticRan = staticAnalysisRan ?? staticFindings.length > 0;
+  const executionRan = executionData !== null;
+  if (staticRan && executionRan) return 'both';
+  if (executionRan) return 'execution';
+  return 'static';
 }

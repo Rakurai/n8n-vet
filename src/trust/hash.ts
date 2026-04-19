@@ -80,14 +80,24 @@ export function computeConnectionsHash(graph: WorkflowGraph): string {
  *
  * Composed from sorted node content hashes + connections hash. If this hash
  * matches between two snapshots, no node-level diffing is needed (research R6).
+ *
+ * Caches individual node hashes to avoid redundant recomputation.
  */
 export function computeWorkflowHash(graph: WorkflowGraph): string {
   const sortedNames = [...graph.nodes.keys()].sort();
   const nodeHashes: string[] = [];
+  const hashCache = new Map<string, string>();
 
   for (const name of sortedNames) {
     const node = graph.nodes.get(name);
-    if (node) nodeHashes.push(computeContentHash(node, graph.ast));
+    if (node) {
+      let hash = hashCache.get(name);
+      if (hash === undefined) {
+        hash = computeContentHash(node, graph.ast);
+        hashCache.set(name, hash);
+      }
+      nodeHashes.push(hash);
+    }
   }
 
   const connectionsHash = computeConnectionsHash(graph);
