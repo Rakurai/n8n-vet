@@ -15,17 +15,19 @@ Stop re-running the whole workflow. Vet what changed.
 ## Setup
 
 ```sh
-git clone <repo-url> && cd n8n-vet
-npm install
-npm run build
-cp .env.example .env   # then fill in values
+npm install n8n-vet
 ```
 
-`.env.example` contains:
+n8n-vet needs two MCP servers available at runtime — **n8n-mcp** (n8n's built-in
+MCP server for workflow execution) and **n8nac** (for workflow authoring):
 
-| Variable | Purpose |
-|----------|---------|
-| `N8N_VET_DATA_DIR` | Directory where n8n-vet stores trust state and other persistent data |
+```sh
+# Claude Code
+claude mcp add n8n-mcp --transport http --url http://localhost:5678/mcp-server/http
+claude mcp add n8nac -- npx --yes n8nac mcp
+```
+
+For VS Code, add the servers to your `mcp.servers` in settings.json.
 
 ## Quick start
 
@@ -119,6 +121,11 @@ n8n-vet validate workflow.ts --json       # raw JSON (same as MCP output)
 - [n8n-as-code](https://github.com/EtienneLescot/n8n-as-code) (n8nac) — sibling tool for workflow authoring and push; n8n-vet and n8nac are independent tools that an agent coordinates, not layered dependencies
 - TypeScript, strict mode, ESM
 - MCP server via `@modelcontextprotocol/sdk`
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, integration testing,
+and coding conventions.
 
 ## License
 

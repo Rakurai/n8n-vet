@@ -115,9 +115,3 @@ These are non-negotiable product principles that should guide all implementation
 - For multi-line scripts: write to `.scratch/` first, then run. **Never use `python3 -c` or `bash -c` with inline multi-line code** — `#` characters (comments, dict literals, f-strings) after newlines inside quoted arguments trigger path-validation security warnings that block autonomous agents. Always write the script to `.scratch/` and execute the file.
 - **Never use compound shell commands** (`&&`, `||`, `;`, pipes). Each Bash call must be a single command. If you need sequential steps, make separate Bash calls or write a script to `.scratch/` and run it. Compound commands trigger approval prompts that block autonomous agents.
 - **Never use Bash for read-only verification.** File existence checks (`test -f`, `[ -f`), content searches (`grep -q`), and file listing loops (`for f in ...`) must use the Glob, Grep, or Read tools instead. Reserve Bash exclusively for commands that require execution (git, lint, test runners, docker, etc.).
-
-## Active Technologies
-- TypeScript 5.x, ESM, Node >= 20 + vitest (testing), biome (lint/format), zod (schema validation) (013-test-suite-audit)
-
-## Recent Changes
-- 013-test-suite-audit: Added TypeScript 5.x, ESM, Node >= 20 + vitest (testing), biome (lint/format), zod (schema validation)
