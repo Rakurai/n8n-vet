@@ -27,6 +27,12 @@ export interface WorkflowGraph {
   /** Backward adjacency: maps each destination node name to its incoming edges. */
   backward: Map<string, Edge[]>;
 
+  /**
+   * Maps display names to property names, enabling expression resolution.
+   * Built during graph construction from each node's displayName → name mapping.
+   */
+  displayNameIndex: Map<string, string>;
+
   /** Original AST produced by the n8nac transformer; preserved for provenance. */
   ast: WorkflowAST;
 }
