@@ -210,6 +210,93 @@ describe('assessEscalationTriggers', () => {
     // Should not be 'redirect' — proceed or other action
     expect(decision.action).not.toBe('redirect');
   });
+
+  it('unresolvable branching ref with opaque upstream → triggered', () => {
+    // Build a custom graph: opaque → if → output
+    // The 'if' branching node has shape-opaque upstream, so the !ref.resolved branch triggers
+    const nodes = new Map<string, import('../../src/types/graph.js').GraphNode>([
+      [
+        'opaque',
+        {
+          name: 'opaque',
+          displayName: 'Opaque',
+          type: 'n8n-nodes-base.code',
+          typeVersion: 1,
+          parameters: {},
+          credentials: null,
+          disabled: false,
+          classification: 'shape-opaque' as const,
+        },
+      ],
+      [
+        'if',
+        {
+          name: 'if',
+          displayName: 'Check',
+          type: 'n8n-nodes-base.if',
+          typeVersion: 1,
+          parameters: {},
+          credentials: null,
+          disabled: false,
+          classification: 'shape-preserving' as const,
+        },
+      ],
+      [
+        'output',
+        {
+          name: 'output',
+          displayName: 'Output',
+          type: 'n8n-nodes-base.set',
+          typeVersion: 1,
+          parameters: {},
+          credentials: null,
+          disabled: false,
+          classification: 'shape-preserving' as const,
+        },
+      ],
+    ]);
+    const forward = new Map([
+      ['opaque', [{ from: 'opaque', fromOutput: 0, to: 'if', toInput: 0, isError: false }]],
+      ['if', [{ from: 'if', fromOutput: 0, to: 'output', toInput: 0, isError: false }]],
+      ['output', []],
+    ]);
+    const backward = new Map([
+      ['opaque', []],
+      ['if', [{ from: 'opaque', fromOutput: 0, to: 'if', toInput: 0, isError: false }]],
+      ['output', [{ from: 'if', fromOutput: 0, to: 'output', toInput: 0, isError: false }]],
+    ]);
+    const graph: import('../../src/types/graph.js').WorkflowGraph = {
+      nodes,
+      forward,
+      backward,
+      displayNameIndex: new Map([
+        ['Opaque', 'opaque'],
+        ['Check', 'if'],
+        ['Output', 'output'],
+      ]),
+      ast: { nodes: [], connections: [] } as unknown as import('@n8n-as-code/transformer').WorkflowAST,
+    };
+
+    const allNames = [...graph.nodes.keys()];
+    const input = makeEvaluationInput({
+      graph,
+      targetNodes: nodeSet(...allNames),
+      changeSet: narrowChanges(
+        [{ node: 'if', changes: ['parameter'] }],
+        allNames.filter((n) => n !== 'if'),
+      ),
+      currentHashes: uniformHashes(allNames),
+      trustState: emptyTrustState(),
+      layer: 'both',
+      expressionRefs: [
+        makeExpressionRef('if', null, { raw: '={{ $json[dynamicKey] }}' }),
+      ],
+    });
+
+    const result = assessEscalationTriggers(input);
+    expect(result.triggered).toBe(true);
+    expect(result.reasons.some((r) => r.includes('unresolvable'))).toBe(true);
+  });
 });
 
 describe('evaluate pipeline — redirect scenario', () => {

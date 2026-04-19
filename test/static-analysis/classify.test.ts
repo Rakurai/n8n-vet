@@ -77,4 +77,40 @@ describe('classifyNode', () => {
   it('classifies unknown type with no credentials as shape-opaque', () => {
     expect(classifyNode(makeNode({ type: 'n8n-nodes-base.somethingUnknown' }))).toBe('shape-opaque');
   });
+
+  it('classifies Merge append as shape-preserving', () => {
+    expect(
+      classifyNode(makeNode({ type: 'n8n-nodes-base.merge', parameters: { mode: 'append' } })),
+    ).toBe('shape-preserving');
+  });
+
+  it('classifies Merge chooseBranch as shape-preserving', () => {
+    expect(
+      classifyNode(makeNode({ type: 'n8n-nodes-base.merge', parameters: { mode: 'chooseBranch' } })),
+    ).toBe('shape-preserving');
+  });
+
+  it('classifies Merge combineByPosition as shape-augmenting', () => {
+    expect(
+      classifyNode(
+        makeNode({ type: 'n8n-nodes-base.merge', parameters: { mode: 'combineByPosition' } }),
+      ),
+    ).toBe('shape-augmenting');
+  });
+
+  it('classifies Merge combineByFields as shape-augmenting', () => {
+    expect(
+      classifyNode(
+        makeNode({ type: 'n8n-nodes-base.merge', parameters: { mode: 'combineByFields' } }),
+      ),
+    ).toBe('shape-augmenting');
+  });
+
+  it('classifies Merge combineBySql as shape-replacing', () => {
+    expect(
+      classifyNode(
+        makeNode({ type: 'n8n-nodes-base.merge', parameters: { mode: 'combineBySql' } }),
+      ),
+    ).toBe('shape-replacing');
+  });
 });

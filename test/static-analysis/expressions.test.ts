@@ -188,6 +188,80 @@ describe('traceExpressions', () => {
     expect(dynamicRef!.fieldPath).toBeNull();
   });
 
+  it('detects $binary reference', () => {
+    const graph = makeGraph([
+      {
+        name: 'binaryNode',
+        displayName: 'Binary Node',
+        type: 'n8n-nodes-base.set',
+        parameters: {
+          value: '={{ $binary.data }}',
+        },
+      },
+    ]);
+
+    const refs = traceExpressions(graph, [nodeIdentity('binaryNode')]);
+
+    const binaryRef = refs.find((r) => r.raw.includes('$binary'));
+    expect(binaryRef).toBeDefined();
+    expect(binaryRef!.resolved).toBe(false);
+    expect(binaryRef!.fieldPath).toBe('data');
+  });
+
+  it('detects $items() reference', () => {
+    const graph = makeGraph([
+      {
+        name: 'sourceNode',
+        displayName: 'Source Node',
+        type: 'n8n-nodes-base.httpRequest',
+        parameters: {},
+      },
+      {
+        name: 'itemsNode',
+        displayName: 'Items Node',
+        type: 'n8n-nodes-base.set',
+        parameters: {
+          value: '={{ $items("Source Node").first().json.id }}',
+        },
+      },
+    ]);
+
+    const refs = traceExpressions(graph, [nodeIdentity('itemsNode')]);
+
+    const itemsRef = refs.find((r) => r.raw.includes('$items'));
+    expect(itemsRef).toBeDefined();
+    expect(itemsRef!.resolved).toBe(true);
+    expect(itemsRef!.referencedNode).toEqual(nodeIdentity('sourceNode'));
+  });
+
+  it('detects $node.DisplayName dot-syntax reference', () => {
+    const graph = makeGraph([
+      {
+        name: 'sourceNode',
+        displayName: 'SourceNode',
+        type: 'n8n-nodes-base.httpRequest',
+        parameters: {},
+      },
+      {
+        name: 'dotNode',
+        displayName: 'Dot Node',
+        type: 'n8n-nodes-base.set',
+        parameters: {
+          // Legacy dot-syntax: $node.DisplayName.json.field (no spaces in display name)
+          value: '={{ $node.SourceNode.json.status }}',
+        },
+      },
+    ]);
+
+    const refs = traceExpressions(graph, [nodeIdentity('dotNode')]);
+
+    const dotRef = refs.find((r) => r.raw.includes('$node.'));
+    expect(dotRef).toBeDefined();
+    expect(dotRef!.resolved).toBe(true);
+    expect(dotRef!.referencedNode).toEqual(nodeIdentity('sourceNode'));
+    expect(dotRef!.fieldPath).toBe('status');
+  });
+
   it('detects $json["bracket"] string literal access', () => {
     const graph = makeGraph([
       {

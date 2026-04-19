@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolveTarget } from '../../src/orchestrator/resolve.js';
+import { computeContentHash } from '../../src/trust/hash.js';
 import type { WorkflowGraph, GraphNode, Edge } from '../../src/types/graph.js';
 import type { NodeIdentity } from '../../src/types/identity.js';
 import type { NodeChangeSet, TrustState } from '../../src/types/trust.js';
@@ -329,14 +330,6 @@ describe('resolveTarget', () => {
 
     it('stops propagation at trusted boundaries during node-targeted validation', () => {
       const graph = linearGraph(); // A → B → C → D
-      // Trust A and D (boundary nodes)
-      const trustState = emptyTrustState();
-      // We need content hashes that match. Since computeContentHash uses AST,
-      // and our test AST is empty, just set dummy hashes.
-      // The isTrusted check uses computeContentHash internally, so for the
-      // propagation to stop we need actual trust records with matching hashes.
-      // Since the test AST is minimal, the content hash for any node will be
-      // the same deterministic hash. Let's compute it indirectly by checking behavior.
 
       // With empty trust state, propagation reaches all nodes
       const resultNoTrust = resolveTarget(
@@ -349,6 +342,32 @@ describe('resolveTarget', () => {
       if (!resultNoTrust.ok) return;
       // Without trust, all nodes are in the slice (A, B, C, D)
       expect(resultNoTrust.slice.nodes.size).toBe(4);
+
+      // Now trust boundary node C with a matching content hash.
+      // When C is trusted, forward propagation from B stops at C,
+      // so D is not reached — slice should be smaller than 4.
+      const trustState = emptyTrustState();
+      const nodeC = graph.nodes.get('C')!;
+      const hashC = computeContentHash(nodeC, graph.ast);
+
+      trustState.nodes.set('C' as NodeIdentity, {
+        contentHash: hashC,
+        validatedBy: 'run-1',
+        validatedAt: '2026-01-01',
+        validationLayer: 'static',
+        fixtureHash: null,
+      });
+
+      // With trusted C, forward propagation stops at C, so D is excluded
+      const resultWithTrust = resolveTarget(
+        { kind: 'nodes', nodes: ['B' as NodeIdentity] },
+        graph,
+        null,
+        trustState,
+      );
+      expect(resultWithTrust.ok).toBe(true);
+      if (!resultWithTrust.ok) return;
+      expect(resultWithTrust.slice.nodes.size).toBeLessThan(4);
     });
 
     it('returns error listing all missing nodes', () => {

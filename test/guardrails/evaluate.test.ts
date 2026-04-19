@@ -103,7 +103,7 @@ describe('evaluate pipeline', () => {
     });
   });
 
-  describe('Step 6: DeFlaker warn', () => {
+  describe('Step 5: DeFlaker warn', () => {
     it('warns when prior failure path does not intersect changes', () => {
       // Use branchingGraph with exactly 5-node target (narrowing needs >5)
       const graph = branchingGraph();
@@ -240,7 +240,7 @@ describe('evaluate pipeline', () => {
     });
   });
 
-  describe('Step 7: broad-target warn', () => {
+  describe('Step 6: broad-target warn', () => {
     it('warns when target covers >70% of workflow (80%)', () => {
       // branchingGraph has 10 nodes; target 8 of them = 80%
       const graph = branchingGraph();
@@ -364,22 +364,24 @@ describe('full pipeline integration — deterministic evaluation order', () => {
     expect(evaluate(input).action).toBe('redirect');
   });
 
-  it('Step 4 wins over Steps 5-8: redirect fires before narrowing', () => {
-    const graph = branchingGraph();
+  it('Step 4 wins over Steps 5-8: narrow fires before DeFlaker and warnings', () => {
+    const graph = largeGraph();
     const allNames = [...graph.nodes.keys()];
-    // Shape-preserving change with structural kind on execution layer → redirect
+    // 1-2 changes out of 15 nodes on static layer → narrow should fire
+    // Trust most nodes so narrowing has a clear boundary
+    const trustedNames = allNames.filter((n) => !['e'].includes(n));
     const input = makeEvaluationInput({
       graph,
       targetNodes: nodeSet(...allNames),
       changeSet: narrowChanges(
-        [{ node: 'output', changes: ['parameter'] }],
-        allNames.filter((n) => n !== 'output'),
+        [{ node: 'e', changes: ['parameter'] }],
+        allNames.filter((n) => n !== 'e'),
       ),
       currentHashes: uniformHashes(allNames),
-      trustState: emptyTrustState(),
-      layer: 'execution',
+      trustState: partialTrustState(trustedNames),
+      layer: 'static',
     });
-    expect(evaluate(input).action).toBe('redirect');
+    expect(evaluate(input).action).toBe('narrow');
   });
 
   it('Step 5 wins over Steps 6-8: narrowing fires before DeFlaker', () => {
