@@ -110,7 +110,7 @@ workflow file
 7. Synthesize a diagnostic summary
 8. Update trust for next time
 
-For the engineering details: [Strategy](docs/STRATEGY.md) covers the target-selection, prioritization, and rerun-suppression approaches (including RTS/TIA-style targeting and DeFlaker-style rerun suppression) and their evidence basis. [Design specs](docs/reference/INDEX.md) cover the type contracts and subsystem behavior.
+For the engineering details: [Strategy](docs/STRATEGY.md) covers the target-selection, prioritization, and rerun-suppression approaches (including RTS/TIA-style targeting and DeFlaker-style rerun suppression) and their evidence basis.
 
 ## MCP tools
 

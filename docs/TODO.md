@@ -64,11 +64,11 @@ None suitable until n8n exposes bounded execution on a public surface. (specs/01
 
 ## Distribution & Platform
 
-- **GitHub Copilot agent support** — Needs separate config files and marketplace listing. Same MCP core works. Deferred post-v0.1.0. (docs/RELEASE-PLAN.md line 4)
+- **GitHub Copilot agent support** — Needs separate config files and marketplace listing. Same MCP core works. Deferred post-v0.1.0.
 
-- **npm registry publishing** — Currently distributed as a git URL (sufficient for Claude plugin). Consider publishing to npm for standalone MCP server users. (docs/RELEASE-PLAN.md line 129)
+- **npm registry publishing** — Currently distributed as a git URL (sufficient for Claude plugin). Consider publishing to npm for standalone MCP server users.
 
-- **LICENSE file** — MIT license file not yet added to the repo. (docs/RELEASE-PLAN.md)
+- **LICENSE file** — MIT license file not yet added to the repo.
 
 ---
 
@@ -80,13 +80,7 @@ None suitable until n8n exposes bounded execution on a public surface. (specs/01
 
 ---
 
-## Release Checklist Items (from RELEASE-PLAN.md)
+## Release (v0.1.0)
 
-Remaining items for v0.1.0 release. See `docs/RELEASE-PLAN.md` for the full checklist.
-
-- **GitHub Actions CI** — Scaffold workflow: typecheck + test + lint on push/PR. `npm run ci` script. (Phase D in release plan)
-- **Clean `npm pack` tarball** — Verify no test/, docs/internal/, .scratch/ in tarball. Add `.npmignore` or `files` field if needed. (Phase D in release plan)
-- **Claude plugin install test** — Test plugin install from git URL in clean Claude Code session. (Phase E, blocked on human)
-- **CHANGELOG.md** — Write entries for v0.1.0. (Phase C in release plan)
-- **SKILL.md verification** — Verify tool descriptions match current API after all code changes. (Phase C in release plan)
-- **`plugin.json` version check** — Ensure version matches `package.json` (0.1.0). Repo URL is `Rakurai/n8n-vet`. (Phase C in release plan)
+- **Claude plugin install test** — Test plugin install from git URL in clean Claude Code session.
+- **`npm pack` verification** — Inspect tarball contents to verify no test/, docs/internal/, .scratch/ leak.

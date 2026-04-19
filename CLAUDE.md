@@ -67,14 +67,13 @@ Read these before making architectural decisions:
 | Doc | Purpose |
 |-----|---------|
 | `docs/VISION.md` | Why this project exists, core philosophy |
-| `docs/PRD.md` | Product requirements, goals, non-goals |
 | `docs/SCOPE.md` | What the project claims and explicitly does not |
 | `docs/CONCEPTS.md` | Shared vocabulary — read first if terms are unclear |
 | `docs/STRATEGY.md` | Validation strategy, named engineering patterns, locked heuristics |
 | `docs/CODING.md` | TypeScript best practices — all implementation code must follow these rules |
 | `docs/TECH.md` | Locked technology decisions |
-| `docs/reference/INDEX.md` | Subsystem API reference docs |
-| `docs/research/` | Platform capability research (n8n, n8nac, field testing notes) |
+| `docs/internal/PRD.md` | Product requirements, goals, non-goals |
+| `docs/internal/research/` | Platform capability research (n8n, n8nac, field testing notes) |
 
 ## Key Domain Concepts
 
