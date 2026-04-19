@@ -268,7 +268,9 @@ The workflow adaptation: before encouraging a rerun or escalating blame, determi
 
 The pattern behind trusted boundaries: validate interface expectations in isolation, then reuse that evidence to avoid broad end-to-end revalidation [R6].
 
-The workflow adaptation: use isolated interface checks at sub-workflow or stage boundaries, record successful validation, and reuse that trust to preserve locality. This product's specific choice to derive trust state from prior validation is a local extension of the CDCT principle, not a literal adoption of Pact-style tooling.
+The workflow adaptation: use isolated interface checks at stage boundaries within a workflow, record successful validation, and reuse that trust to preserve locality. This product's specific choice to derive trust state from prior validation is a local extension of the CDCT principle, not a literal adoption of Pact-style tooling.
+
+In v1, the CDCT pattern applies to intra-workflow boundaries — stable graph stages and trusted regions within a single workflow. Cross-workflow boundaries (sub-workflow call nodes) are treated as opaque in v1; the extension of CDCT to sub-workflow interfaces is deferred.
 
 **Applies to:** principle 7.
 
