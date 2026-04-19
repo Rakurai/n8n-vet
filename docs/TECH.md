@@ -442,7 +442,7 @@ Those belong in later feasibility and design work.
 
 ### Framework
 
-Vitest is the testing framework, consistent with the TypeScript ecosystem and n8nac's usage.
+Vitest is the unit and fixture-based testing framework, consistent with the TypeScript ecosystem and n8nac's usage. Integration tests use a custom `tsx`-based runner (`test/integration/run.ts`) that orchestrates 8 scenarios against a live n8n instance.
 
 ### Testing layers
 
@@ -453,11 +453,11 @@ Core library functions are pure transforms over data structures. Graph walking, 
 Static analysis accuracy is validated against real workflow snapshots containing known bug patterns (data-loss-through-replacement, broken expression references, schema mismatches). Fixtures are committed to the repo.
 
 **Integration tests (require running n8n instance, slower):**
-Execution orchestration, pin data construction, bounded execution via REST API, and diagnostic extraction from execution results require a live n8n instance. These tests are more expensive and may be gated behind an environment flag.
+End-to-end validation of the full pipeline — static analysis, execution orchestration, trust lifecycle, guardrail behavior, MCP round-trip, and bounded execution — against a live n8n instance with 7 seeded test workflows. The custom runner in `test/integration/run.ts` executes 8 scenarios sequentially with per-scenario trust/snapshot isolation. Run via `npx tsx test/integration/run.ts`. Requires n8n reachable, n8nac configured, and fixtures seeded via `npx tsx test/integration/seed.ts`.
 
 ### Locked decision
 
-**Decision:** Vitest. Unit and fixture-based tests are the primary quality gate. Integration tests are secondary and environment-gated.
+**Decision:** Vitest for unit and fixture-based tests. Custom tsx runner for integration tests. Unit and fixture-based tests are the primary quality gate. Integration tests are secondary and require a live n8n instance.
 
 ---
 
