@@ -1,0 +1,25 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+.idea/
+*.sublime-workspace
+
+# Runtime / debug
+*.log
+coverage/
+
+# Project local state
+.scratch/
+.n8n-check/
+
+# spec-kit
+.specify/
+.claude/commands/speckit.*

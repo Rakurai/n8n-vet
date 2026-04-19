@@ -1,0 +1,45 @@
+{
+  "name": "n8n-check",
+  "version": "0.1.0",
+  "description": "Guardrailed validation control for agent-built n8n workflows",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "n8n-check": "./dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check src/",
+    "lint:fix": "biome check --write src/",
+    "format": "biome format --write src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "n8n",
+    "workflow",
+    "validation",
+    "testing",
+    "mcp",
+    "agent"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@n8n-as-code/transformer": "file:../n8n-as-code/packages/transformer",
+    "zod": "^3.24.0"
+  },
+  "optionalDependencies": {
+    "@n8n-as-code/skills": "file:../n8n-as-code/packages/skills"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.1.0"
+  }
+}
