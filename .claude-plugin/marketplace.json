@@ -1,0 +1,16 @@
+{
+  "name": "n8n-vet",
+  "owner": {
+    "name": "Rakurai"
+  },
+  "metadata": {
+    "description": "Guardrailed validation control for agent-built n8n workflows"
+  },
+  "plugins": [
+    {
+      "name": "n8n-vet",
+      "source": ".",
+      "description": "Guardrailed validation control for agent-built n8n workflows"
+    }
+  ]
+}

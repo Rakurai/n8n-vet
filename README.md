@@ -16,8 +16,11 @@ Stop re-running the whole workflow. Vet what changed.
 
 ### Claude Code plugin (recommended)
 
-```sh
-claude plugin add github.com/Rakurai/n8n-vet
+Add the marketplace and install the plugin:
+
+```
+/plugin marketplace add Rakurai/n8n-vet
+/plugin install n8n-vet@n8n-vet
 ```
 
 Then configure the two MCP servers n8n-vet needs at runtime — **n8n-mcp** (n8n's
