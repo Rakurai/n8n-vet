@@ -1,10 +1,9 @@
 /**
  * Typed error classes for the execution subsystem.
  *
- * Three error categories covering distinct failure domains:
- * - Infrastructure: n8n unreachable, auth failure, MCP unavailable
+ * Two error categories covering distinct failure domains:
+ * - Infrastructure: n8n unreachable, MCP unavailable
  * - Precondition: workflow missing/stale, pin data unavailable
- * - Configuration: credentials missing or unresolvable
  */
 
 // ---------------------------------------------------------------------------
@@ -12,11 +11,7 @@
 // ---------------------------------------------------------------------------
 
 /** Reasons for infrastructure-level execution failures. */
-export type InfrastructureReason =
-  | 'unreachable'
-  | 'auth-failure'
-  | 'mcp-unavailable'
-  | 'execution-not-found';
+export type InfrastructureReason = 'unreachable' | 'mcp-unavailable' | 'execution-not-found';
 
 /** Reasons for precondition failures that require agent action. */
 export type PreconditionReason =
@@ -56,13 +51,4 @@ export class ExecutionPreconditionError extends Error {
     super(message);
     this.reason = reason;
   }
-}
-
-/**
- * Configuration error — credentials cannot be resolved from the config cascade.
- *
- * Caller response: fix the n8n/n8nac configuration.
- */
-export class ExecutionConfigError extends Error {
-  override readonly name = 'ExecutionConfigError' as const;
 }

@@ -115,7 +115,7 @@ Execution-backed validation is the expensive path. It is justified when runtime 
 
 **Implication.** The product should prefer bounded execution over whole-workflow execution, mocked or pinned execution over live external behavior where possible, and static pre-flight checks before paying execution cost.
 
-**v0.1.0 execution scoping.** Bounded execution via direct REST triggering (`POST /workflows/:id/run`) is deferred — that endpoint is internal to the n8n editor and is not accessible through API-key authentication. Instead, v0.1.0 scopes execution through pin data placement: placing pin data at trusted boundaries prevents those nodes from re-executing, effectively limiting execution to the unpinned (changed) region of the graph. The MCP `test_workflow` tool is the sole execution trigger; it initiates a full workflow run whose effective scope is controlled by which nodes carry pinned data.
+**v0.1.0 execution scoping.** Execution is scoped through pin data placement: placing pin data at trusted boundaries prevents those nodes from re-executing, effectively limiting execution to the unpinned (changed) region of the graph. The MCP `test_workflow` tool is the sole execution trigger; it initiates a full workflow run whose effective scope is controlled by which nodes carry pinned data.
 
 ---
 

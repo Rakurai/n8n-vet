@@ -8,11 +8,7 @@
 
 import { ZodError } from 'zod';
 import { SynthesisError } from './diagnostics/synthesize.js';
-import {
-  ExecutionConfigError,
-  ExecutionInfrastructureError,
-  ExecutionPreconditionError,
-} from './execution/errors.js';
+import { ExecutionInfrastructureError, ExecutionPreconditionError } from './execution/errors.js';
 import { ConfigurationError, MalformedWorkflowError } from './static-analysis/errors.js';
 import { TrustPersistenceError } from './trust/errors.js';
 
@@ -63,7 +59,7 @@ export function mapToMcpError(error: unknown): McpError {
     return { type: 'parse_error', message: error.message };
   }
 
-  if (error instanceof ConfigurationError || error instanceof ExecutionConfigError) {
+  if (error instanceof ConfigurationError) {
     return { type: 'configuration_error', message: error.message };
   }
 

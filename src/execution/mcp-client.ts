@@ -11,14 +11,11 @@
  */
 
 import { z } from 'zod';
-import type { NodeIdentity } from '../types/identity.js';
 import { ExecutionInfrastructureError } from './errors.js';
 import { withExecutionLock } from './lock.js';
-import type { PollStatusResult, PollingStrategy } from './poll.js';
 import { extractExecutionData } from './results.js';
 import type { RawResultData } from './results.js';
 import type { ExecutionData, ExecutionResult, ExecutionStatus, PinData } from './types.js';
-import { isTerminalStatus } from './types.js';
 
 // ---------------------------------------------------------------------------
 // MCP tool caller interface
@@ -211,51 +208,6 @@ export async function getExecution(
   );
 
   return { status, data: executionData };
-}
-
-// ---------------------------------------------------------------------------
-// MCP polling strategy
-// ---------------------------------------------------------------------------
-
-/**
- * Create a PollingStrategy backed by MCP get_execution.
- */
-export function createMcpPollingStrategy(
-  workflowId: string,
-  callTool: McpToolCaller,
-): PollingStrategy {
-  return {
-    async checkStatus(executionId: string): Promise<PollStatusResult> {
-      const result = await getExecution(workflowId, executionId, callTool);
-      return {
-        status: result.status,
-        finished: isTerminalStatus(result.status),
-      };
-    },
-
-    async retrieveData(
-      executionId: string,
-      nodeNames: NodeIdentity[],
-      truncateData: number,
-    ): Promise<ExecutionData> {
-      const result = await getExecution(workflowId, executionId, callTool, {
-        includeData: true,
-        nodeNames: nodeNames as string[],
-        truncateData,
-      });
-
-      if (!result.data) {
-        return {
-          nodeResults: new Map(),
-          lastNodeExecuted: null,
-          error: null,
-          status: result.status,
-        };
-      }
-
-      return result.data;
-    },
-  };
 }
 
 // ---------------------------------------------------------------------------

@@ -14,7 +14,6 @@ import type {
   PinData,
   PinDataItem,
   PinDataResult,
-  ResolvedCredentials,
 } from '../execution/types.js';
 import type { EvaluationInput } from '../guardrails/types.js';
 import type { NodeSchemaProvider } from '../static-analysis/schemas.js';
@@ -123,7 +122,6 @@ export interface OrchestratorDeps {
     callTool: McpToolCaller,
     triggerNodeName?: string,
   ) => Promise<ExecutionResult>;
-  getExecutionData: (executionId: string, credentials: ResolvedCredentials) => Promise<unknown>;
   constructPinData: (
     graph: WorkflowGraph,
     trustedBoundaries: NodeIdentity[],
@@ -140,8 +138,6 @@ export interface OrchestratorDeps {
 
   // Capability detection
   detectCapabilities: (options?: {
-    explicit?: { host?: string; apiKey?: string };
-    workflowId?: string;
     callTool?: McpToolCaller;
   }) => Promise<DetectedCapabilities>;
 }

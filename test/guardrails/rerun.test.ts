@@ -20,7 +20,7 @@ function makeSummary(overrides?: Partial<DiagnosticSummary>): DiagnosticSummary 
     nodeAnnotations: [],
     guardrailActions: [],
     hints: [],
-    capabilities: { staticAnalysis: true, restReadable: false, mcpTools: false },
+    capabilities: { staticAnalysis: true, mcpTools: false },
     meta: {
       runId: 'run-1',
       executionId: null,

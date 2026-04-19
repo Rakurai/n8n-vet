@@ -151,9 +151,7 @@ export function formatGuardrailExplanation(explanation: GuardrailExplanation): s
 
   const cap = explanation.capabilities;
   lines.push('');
-  lines.push(
-    `${BOLD}Capabilities:${RESET} static=${cap.staticAnalysis} rest=${cap.restReadable} mcp=${cap.mcpTools}`,
-  );
+  lines.push(`${BOLD}Capabilities:${RESET} static=${cap.staticAnalysis} mcp=${cap.mcpTools}`);
 
   return lines.join('\n');
 }

@@ -140,7 +140,6 @@ export async function interpret(
   let usedPinData: PinData | null = null;
   const capabilities: AvailableCapabilities = {
     staticAnalysis: true,
-    restReadable: false,
     mcpTools: false,
   };
   let executionId: string | null = null;
@@ -170,7 +169,6 @@ export async function interpret(
       const detected = await deps.detectCapabilities(
         request.callTool ? { callTool: request.callTool } : undefined,
       );
-      capabilities.restReadable = detected.restReadable;
       capabilities.mcpTools = detected.mcpAvailable;
 
       if (detected.mcpAvailable && request.callTool) {
@@ -346,7 +344,7 @@ function errorDiagnostic(message: string, runId: string, startTime: number): Dia
     nodeAnnotations: [],
     guardrailActions: [],
     hints: [],
-    capabilities: { staticAnalysis: true, restReadable: false, mcpTools: false },
+    capabilities: { staticAnalysis: true, mcpTools: false },
     meta: {
       runId,
       executionId: null,
@@ -372,7 +370,7 @@ function skippedDiagnostic(
     nodeAnnotations: [],
     guardrailActions: guardrailDecisions,
     hints: [],
-    capabilities: { staticAnalysis: true, restReadable: false, mcpTools: false },
+    capabilities: { staticAnalysis: true, mcpTools: false },
     meta: {
       runId,
       executionId: null,

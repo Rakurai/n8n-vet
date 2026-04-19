@@ -15,11 +15,7 @@ Stop re-running the whole workflow. Vet what changed.
   "mcpServers": {
     "n8n-vet": {
       "command": "node",
-      "args": ["./dist/mcp/serve.js"],
-      "env": {
-        "N8N_HOST": "http://localhost:5678",
-        "N8N_API_KEY": "your-api-key"
-      }
+      "args": ["./dist/mcp/serve.js"]
     }
   }
 }

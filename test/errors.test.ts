@@ -6,7 +6,6 @@ import { describe, expect, it } from 'vitest';
 import { ZodError } from 'zod';
 import { mapToMcpError } from '../src/errors.js';
 import { MalformedWorkflowError, ConfigurationError } from '../src/static-analysis/errors.js';
-import { ExecutionConfigError } from '../src/execution/errors.js';
 
 describe('mapToMcpError', () => {
   it('maps MalformedWorkflowError to parse_error', () => {
@@ -21,13 +20,6 @@ describe('mapToMcpError', () => {
     const result = mapToMcpError(err);
     expect(result.type).toBe('configuration_error');
     expect(result.message).toContain('@n8n-as-code/transformer');
-  });
-
-  it('maps ExecutionConfigError to configuration_error', () => {
-    const err = new ExecutionConfigError('missing n8n credentials');
-    const result = mapToMcpError(err);
-    expect(result.type).toBe('configuration_error');
-    expect(result.message).toContain('missing n8n credentials');
   });
 
   it('maps ENOENT error to workflow_not_found', () => {

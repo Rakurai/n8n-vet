@@ -93,7 +93,6 @@ export interface DiagnosticHint {
 export interface AvailableCapabilities {
   /** Static analysis is always available; no external dependencies required. */
   staticAnalysis: true;
-  restReadable: boolean;
   mcpTools: boolean;
 }
 

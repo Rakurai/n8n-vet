@@ -93,7 +93,7 @@ function passSummary(): DiagnosticSummary {
     nodeAnnotations: [],
     guardrailActions: [],
     hints: [],
-    capabilities: { staticAnalysis: true, restReadable: false, mcpTools: false },
+    capabilities: { staticAnalysis: true, mcpTools: false },
     meta,
   };
 }
@@ -121,14 +121,12 @@ function createMockDeps(overrides?: Partial<OrchestratorDeps>): OrchestratorDeps
     checkSchemas: vi.fn().mockReturnValue([]),
     validateNodeParams: vi.fn().mockReturnValue([]),
     executeSmoke: vi.fn().mockResolvedValue({ executionId: 'exec-1', status: 'success', error: null }),
-    getExecutionData: vi.fn().mockResolvedValue({}),
     constructPinData: vi.fn().mockReturnValue({ pinData: {}, sourceMap: {} }),
     synthesize: vi.fn().mockReturnValue(passSummary()),
     loadSnapshot: vi.fn().mockReturnValue(graph),
     saveSnapshot: vi.fn(),
     detectCapabilities: vi.fn().mockResolvedValue({
       level: 'mcp',
-      restReadable: true,
       mcpAvailable: false,
       mcpTools: [],
     }),

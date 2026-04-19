@@ -1,19 +1,16 @@
 /**
  * Execution environment capability detection.
  *
- * Probes n8n reachability, REST auth, MCP tool discovery, and optionally
- * workflow existence/staleness. Returns DetectedCapabilities describing
- * what execution operations are available.
+ * Probes MCP tool discovery to determine whether execution is available.
+ * Returns DetectedCapabilities describing the execution surface.
  *
  * Also exports toAvailableCapabilities() for mapping to the shared
  * AvailableCapabilities type used in DiagnosticSummary.
  */
 
 import type { AvailableCapabilities } from '../types/diagnostic.js';
-import { ExecutionInfrastructureError, ExecutionPreconditionError } from './errors.js';
 import type { McpToolCaller } from './mcp-client.js';
-import { resolveCredentials } from './rest-client.js';
-import type { DetectedCapabilities, ExplicitCredentials, ResolvedCredentials } from './types.js';
+import type { DetectedCapabilities } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Capability detection (T021)
@@ -25,36 +22,12 @@ const EXECUTION_MCP_TOOLS = ['test_workflow', 'get_execution', 'prepare_test_pin
 /**
  * Probe the execution environment and report available capabilities.
  *
- * Steps:
- *   1. Resolve credentials (throws ExecutionConfigError on failure)
- *   2. Probe n8n health/auth via REST
- *   3. Discover MCP tools if callTool provided
- *   4. Optionally check workflow existence
+ * Discovers available MCP tools and determines the capability level:
+ * 'mcp' when execution tools are available, 'static-only' otherwise.
  */
 export async function detectCapabilities(options?: {
-  explicit?: ExplicitCredentials;
-  workflowId?: string;
   callTool?: McpToolCaller;
 }): Promise<DetectedCapabilities> {
-  // Step 1: Resolve credentials
-  let credentials: ResolvedCredentials | null = null;
-  try {
-    credentials = await resolveCredentials(options?.explicit);
-  } catch {
-    // No credentials available — REST is not available
-  }
-
-  // Step 2: Probe REST readability
-  let restReadable = false;
-  if (credentials) {
-    try {
-      restReadable = await probeRest(credentials);
-    } catch {
-      // Network/auth errors → REST unavailable, degrade to static-only
-    }
-  }
-
-  // Step 3: Discover MCP tools
   let mcpAvailable = false;
   let mcpTools: string[] = [];
 
@@ -64,15 +37,9 @@ export async function detectCapabilities(options?: {
     mcpAvailable = discovered.length > 0;
   }
 
-  // Step 4: Check workflow if requested
-  if (options?.workflowId && restReadable && credentials) {
-    await checkWorkflow(options.workflowId, credentials);
-  }
-
-  // Determine capability level — MCP is the sole execution backend
   const level: DetectedCapabilities['level'] = mcpAvailable ? 'mcp' : 'static-only';
 
-  return { level, restReadable, mcpAvailable, mcpTools };
+  return { level, mcpAvailable, mcpTools };
 }
 
 // ---------------------------------------------------------------------------
@@ -86,7 +53,6 @@ export async function detectCapabilities(options?: {
 export function toAvailableCapabilities(detected: DetectedCapabilities): AvailableCapabilities {
   return {
     staticAnalysis: true,
-    restReadable: detected.restReadable,
     mcpTools: detected.mcpAvailable,
   };
 }
@@ -94,32 +60,6 @@ export function toAvailableCapabilities(detected: DetectedCapabilities): Availab
 // ---------------------------------------------------------------------------
 // Probing helpers
 // ---------------------------------------------------------------------------
-
-/** Probe n8n REST API availability and authentication. */
-async function probeRest(credentials: ResolvedCredentials): Promise<boolean> {
-  const host = credentials.host.replace(/\/+$/, '');
-
-  let response: Response;
-  try {
-    response = await fetch(`${host}/api/v1/workflows?limit=1`, {
-      method: 'GET',
-      headers: {
-        'X-N8N-API-KEY': credentials.apiKey,
-      },
-    });
-  } catch {
-    throw new ExecutionInfrastructureError('unreachable', `n8n unreachable at ${credentials.host}`);
-  }
-
-  if (response.status === 401 || response.status === 403) {
-    throw new ExecutionInfrastructureError(
-      'auth-failure',
-      `Authentication failed for ${credentials.host} (HTTP ${response.status})`,
-    );
-  }
-
-  return response.ok;
-}
 
 /**
  * Discover which execution-related MCP tools are available via tools/list.
@@ -155,35 +95,4 @@ async function discoverMcpTools(callTool: McpToolCaller): Promise<string[]> {
     }
   }
   return discovered;
-}
-
-/** Check workflow existence via REST. */
-async function checkWorkflow(workflowId: string, credentials: ResolvedCredentials): Promise<void> {
-  const host = credentials.host.replace(/\/+$/, '');
-
-  let response: Response;
-  try {
-    response = await fetch(`${host}/api/v1/workflows/${workflowId}`, {
-      method: 'GET',
-      headers: {
-        'X-N8N-API-KEY': credentials.apiKey,
-      },
-    });
-  } catch (err) {
-    throw new ExecutionInfrastructureError(
-      'unreachable',
-      `n8n unreachable during workflow check: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-
-  if (response.status === 404) {
-    throw new ExecutionPreconditionError(
-      'workflow-not-found',
-      `Workflow ${workflowId} not found in n8n. Push it first via n8nac.`,
-    );
-  }
-
-  // Staleness check depends on Phase 3 trust hashing.
-  // When trust hashing is available, compare local content hash to remote.
-  // For now, existence check only.
 }

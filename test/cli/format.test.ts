@@ -41,7 +41,7 @@ function makeSummary(status: DiagnosticSummary['status']): DiagnosticSummary {
     nodeAnnotations: [],
     guardrailActions: [],
     hints: [],
-    capabilities: { staticAnalysis: true, restReadable: false, mcpTools: false },
+    capabilities: { staticAnalysis: true, mcpTools: false },
     meta: makeMeta(),
   };
 }
@@ -141,7 +141,7 @@ describe('formatGuardrailExplanation', () => {
         overridable: false,
       },
       targetResolution: { resolvedNodes: ['nodeA'], selectedPath: [], automatic: true },
-      capabilities: { staticAnalysis: true, restReadable: false, mcpTools: false },
+      capabilities: { staticAnalysis: true, mcpTools: false },
     };
     const output = formatGuardrailExplanation(explanation);
     expect(output).toContain('PROCEED');
@@ -158,7 +158,7 @@ describe('formatGuardrailExplanation', () => {
         overridable: true,
       },
       targetResolution: { resolvedNodes: [], selectedPath: [], automatic: false },
-      capabilities: { staticAnalysis: true, restReadable: true, mcpTools: false },
+      capabilities: { staticAnalysis: true, mcpTools: false },
     };
     const output = formatGuardrailExplanation(explanation);
     expect(output).toContain('WARN');
@@ -175,7 +175,7 @@ describe('formatGuardrailExplanation', () => {
         narrowedTarget: { kind: 'nodes', nodes: ['a' as NodeIdentity] },
       },
       targetResolution: { resolvedNodes: ['a', 'b'], selectedPath: [], automatic: true },
-      capabilities: { staticAnalysis: true, restReadable: false, mcpTools: false },
+      capabilities: { staticAnalysis: true, mcpTools: false },
     };
     const output = formatGuardrailExplanation(explanation);
     expect(output).toContain('NARROW');

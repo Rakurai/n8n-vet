@@ -34,13 +34,11 @@ export const fiveNodeTarget: ResolvedTarget = {
 
 export const fullCapabilities: AvailableCapabilities = {
   staticAnalysis: true,
-  restReadable: true,
   mcpTools: true,
 };
 
 export const staticOnlyCapabilities: AvailableCapabilities = {
   staticAnalysis: true,
-  restReadable: false,
   mcpTools: false,
 };
 

@@ -97,8 +97,7 @@ MCP is the preferred **surface exposed by the product**.
 Internally, the product may call:
 
 * n8nac libraries
-* n8n REST APIs
-* n8n MCP tools, if appropriate
+* n8n MCP tools
 * direct package APIs
 
 Internal transport should be chosen pragmatically based on capability, stability, and control.
@@ -234,27 +233,9 @@ Execution-backed validation should be treated as a **compile+test step with real
 
 The product may use multiple runtime integration surfaces depending on what capability is required.
 
-### 10.1 n8n REST API
+### 10.1 n8n MCP tools
 
-The n8n REST API is an acceptable and important integration surface.
-
-It should be used whenever it provides a meaningful capability advantage.
-
-### Why
-
-Current research shows that the REST API exposes execution capabilities that map well to this project’s needs, especially around bounded or partial execution semantics.
-
-This is important because slice/path-oriented validation is central to the product vision.
-
-### Locked decision
-
-**Decision:** REST API use is explicitly allowed and expected when it provides a meaningful product advantage.
-
-### 10.2 n8n MCP tools
-
-n8n MCP tools may also be used where they provide the best available execution or inspection path.
-
-However, using MCP internally is not assumed to be the default or only integration strategy.
+n8n MCP tools are the execution backend, used for workflow execution, inspection, and pin data discovery.
 
 ### Clarification
 
@@ -265,7 +246,6 @@ Internal use of MCP should be judged pragmatically.
 Questions to evaluate in later design work include:
 
 * whether MCP provides the needed capability directly
-* whether REST offers more control or better slice/path support
 * whether package/library access is more stable or easier to reason about
 * whether MCP introduces unnecessary indirection inside the product
 
@@ -281,9 +261,8 @@ The product should not hard-code itself to a single execution backend too early.
 
 ### Why
 
-Research across n8n and n8nac surfaces shows that useful execution-related capabilities are split across:
+Research across n8n and n8nac surfaces shows that useful execution-related capabilities are available through:
 
-* direct API surfaces
 * MCP tools
 * existing n8nac functionality
 
@@ -417,8 +396,7 @@ The library core + thin interface architecture already separates product logic f
 * Local workflow artifacts as source of truth
 * Static analysis is heuristic and high-value, not exhaustive
 * Local-first graph analysis
-* REST API allowed and expected where it provides product advantage
-* REST API (destinationNode) for bounded execution, MCP for smoke tests and inspection
+* MCP tools for execution, inspection, and pin data discovery
 * n8nac transformer for workflow parsing, custom graph walker for analysis
 * Internal use of MCP is optional, not assumed
 * Trusted interfaces are primarily derived

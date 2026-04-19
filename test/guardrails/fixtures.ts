@@ -437,7 +437,7 @@ export function passedSummary(targetNodes: string[]): DiagnosticSummary {
     nodeAnnotations: [],
     guardrailActions: [],
     hints: [],
-    capabilities: { staticAnalysis: true, restReadable: false, mcpTools: false },
+    capabilities: { staticAnalysis: true, mcpTools: false },
     meta: {
       runId: 'run-prior-001',
       executionId: 'exec-001',
@@ -510,7 +510,7 @@ export function failedSummary(
     nodeAnnotations: [],
     guardrailActions: [],
     hints: [],
-    capabilities: { staticAnalysis: true, restReadable: false, mcpTools: false },
+    capabilities: { staticAnalysis: true, mcpTools: false },
     meta: {
       runId: 'run-prior-002',
       executionId: 'exec-002',

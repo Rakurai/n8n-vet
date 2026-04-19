@@ -1,6 +1,6 @@
 /**
  * Internal types for the execution subsystem — pin data, execution results,
- * per-node extraction, polling constants, and capability detection.
+ * per-node extraction, and capability detection.
  *
  * Cross-subsystem types (NodeIdentity, WorkflowGraph, AvailableCapabilities)
  * are imported from src/types/. These types are internal to execution and
@@ -53,19 +53,6 @@ export type ExecutionStatus =
   | 'running'
   | 'new'
   | 'unknown';
-
-/** Statuses that indicate execution has finished (no more polling needed). */
-export const TERMINAL_STATUSES: ReadonlySet<ExecutionStatus> = new Set([
-  'success',
-  'error',
-  'crashed',
-  'canceled',
-]);
-
-/** Check whether an execution status is terminal. */
-export function isTerminalStatus(status: ExecutionStatus): boolean {
-  return TERMINAL_STATUSES.has(status);
-}
 
 /** Outcome of triggering an execution. */
 export interface ExecutionResult {
@@ -140,42 +127,6 @@ export type CapabilityLevel = 'mcp' | 'static-only';
 /** Detected execution environment capabilities. */
 export interface DetectedCapabilities {
   level: CapabilityLevel;
-  restReadable: boolean;
   mcpAvailable: boolean;
   mcpTools: string[];
-}
-
-// ---------------------------------------------------------------------------
-// Polling Constants
-// ---------------------------------------------------------------------------
-
-/** Initial delay before the first status poll (milliseconds). */
-export const POLL_INITIAL_DELAY_MS = 1000;
-
-/** Exponential backoff multiplier applied after each poll cycle. */
-export const POLL_BACKOFF_FACTOR = 2;
-
-/** Maximum delay between consecutive status polls (milliseconds). */
-export const POLL_MAX_DELAY_MS = 15_000;
-
-/** Total timeout for the polling loop (milliseconds). 5 minutes. */
-export const POLL_TIMEOUT_MS = 300_000;
-
-/** Default number of items per node output in data retrieval. */
-export const POLL_TRUNCATE_DATA = 5;
-
-// ---------------------------------------------------------------------------
-// Credential Resolution
-// ---------------------------------------------------------------------------
-
-/** Resolved n8n instance credentials. */
-export interface ResolvedCredentials {
-  host: string;
-  apiKey: string;
-}
-
-/** Explicit credential overrides provided in a validation request. */
-export interface ExplicitCredentials {
-  host?: string;
-  apiKey?: string;
 }

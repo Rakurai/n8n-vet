@@ -101,7 +101,6 @@ export { evaluate } from './guardrails/evaluate.js';
 export type { EvaluationInput } from './guardrails/types.js';
 
 // Execution — public API
-export { getExecutionData } from './execution/rest-client.js';
 export { executeSmoke } from './execution/mcp-client.js';
 export { constructPinData } from './execution/pin-data.js';
 export { detectCapabilities } from './execution/capabilities.js';
@@ -113,7 +112,6 @@ export type {
   ExecutionResult,
   ExecutionData,
   DetectedCapabilities,
-  ResolvedCredentials,
 } from './execution/types.js';
 
 // Orchestrator — public API

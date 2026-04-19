@@ -34,8 +34,8 @@ describe('.mcp.json configuration', () => {
     expect(server.args[0]).toContain('dist/mcp/serve.js');
   });
 
-  it('passes all required env vars (N8N_HOST, N8N_API_KEY, N8N_VET_DATA_DIR, NODE_PATH)', () => {
-    for (const key of ['N8N_HOST', 'N8N_API_KEY', 'N8N_VET_DATA_DIR', 'NODE_PATH']) {
+  it('passes all required env vars (N8N_VET_DATA_DIR, NODE_PATH)', () => {
+    for (const key of ['N8N_VET_DATA_DIR', 'NODE_PATH']) {
       expect(server.env, `missing env var: ${key}`).toHaveProperty(key);
     }
   });

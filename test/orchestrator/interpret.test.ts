@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { interpret } from '../../src/orchestrator/interpret.js';
 import type { OrchestratorDeps, ValidationRequest } from '../../src/orchestrator/types.js';
 import type { WorkflowGraph, GraphNode, Edge } from '../../src/types/graph.js';
@@ -81,7 +81,7 @@ function passSummary(resolvedTarget: ResolvedTarget, meta: ValidationMeta): Diag
     nodeAnnotations: [],
     guardrailActions: [],
     hints: [],
-    capabilities: { staticAnalysis: true, restReadable: false, mcpTools: false },
+    capabilities: { staticAnalysis: true, mcpTools: false },
     meta,
   };
 }
@@ -131,7 +131,6 @@ function createMockDeps(overrides?: Partial<OrchestratorDeps>): OrchestratorDeps
     checkSchemas: vi.fn().mockReturnValue([]),
     validateNodeParams: vi.fn().mockReturnValue([]),
     executeSmoke: vi.fn().mockResolvedValue({ executionId: 'exec-1', status: 'success', error: null }),
-    getExecutionData: vi.fn().mockResolvedValue({}),
     constructPinData: vi.fn().mockReturnValue({ pinData: {}, sourceMap: {} }),
     synthesize: vi.fn().mockImplementation((input) => {
       const target = input.resolvedTarget as ResolvedTarget;
@@ -142,7 +141,6 @@ function createMockDeps(overrides?: Partial<OrchestratorDeps>): OrchestratorDeps
     saveSnapshot: vi.fn(),
     detectCapabilities: vi.fn().mockResolvedValue({
       level: 'mcp',
-      restReadable: true,
       mcpAvailable: false,
       mcpTools: [],
     }),
@@ -243,7 +241,7 @@ describe('interpret() — changed-target static-only pipeline', () => {
         nodeAnnotations: [],
         guardrailActions: [],
         hints: [],
-        capabilities: { staticAnalysis: true, restReadable: false, mcpTools: false },
+        capabilities: { staticAnalysis: true, mcpTools: false },
         meta: { runId: 'x', executionId: null, timestamp: '', durationMs: 0 },
       }),
     });
@@ -536,16 +534,6 @@ describe('interpret() — guardrail routing (US4 T012)', () => {
 });
 
 describe('interpret() — execution-backed validation (US4 T014)', () => {
-  beforeEach(() => {
-    process.env['N8N_HOST'] = 'http://localhost:5678';
-    process.env['N8N_API_KEY'] = 'test-api-key';
-  });
-
-  afterEach(() => {
-    delete process.env['N8N_HOST'];
-    delete process.env['N8N_API_KEY'];
-  });
-
   it('runs both static and execution for layer:both', async () => {
     const callTool = vi.fn().mockResolvedValue({
       execution: { id: 'exec-1', workflowId: 'wf-1', mode: 'cli', status: 'success', startedAt: '2026-01-01T00:00:00Z', stoppedAt: '2026-01-01T00:00:01Z' },
@@ -554,7 +542,6 @@ describe('interpret() — execution-backed validation (US4 T014)', () => {
     const deps = createMockDeps({
       detectCapabilities: vi.fn().mockResolvedValue({
         level: 'mcp',
-        restReadable: true,
         mcpAvailable: true,
         mcpTools: ['test_workflow'],
       }),
@@ -584,7 +571,6 @@ describe('interpret() — execution-backed validation (US4 T014)', () => {
     const deps = createMockDeps({
       detectCapabilities: vi.fn().mockResolvedValue({
         level: 'mcp',
-        restReadable: true,
         mcpAvailable: true,
         mcpTools: ['test_workflow'],
       }),
@@ -636,7 +622,6 @@ describe('interpret() — execution-backed validation (US4 T014)', () => {
     const deps = createMockDeps({
       detectCapabilities: vi.fn().mockResolvedValue({
         level: 'mcp',
-        restReadable: true,
         mcpAvailable: true,
         mcpTools: ['test_workflow'],
       }),
@@ -691,7 +676,7 @@ describe('interpret() — trust persistence across runs (US5 T015)', () => {
         nodeAnnotations: [],
         guardrailActions: [],
         hints: [],
-        capabilities: { staticAnalysis: true, restReadable: false, mcpTools: false },
+        capabilities: { staticAnalysis: true, mcpTools: false },
         meta: { runId: 'x', executionId: null, timestamp: '', durationMs: 0 },
       }),
     });
@@ -812,34 +797,26 @@ describe('interpret() — error conditions (T022)', () => {
   });
 
   it('returns error diagnostic when execution fails to start', async () => {
-    process.env['N8N_HOST'] = 'http://localhost:5678';
-    process.env['N8N_API_KEY'] = 'test-api-key';
-    try {
-      const callTool = vi.fn();
-      const deps = createMockDeps({
-        detectCapabilities: vi.fn().mockResolvedValue({
-          level: 'mcp',
-          restReadable: true,
-          mcpAvailable: true,
-          mcpTools: ['test_workflow'],
-        }),
-        executeSmoke: vi.fn().mockRejectedValue(new Error('Workflow not found on n8n')),
-      });
+    const callTool = vi.fn();
+    const deps = createMockDeps({
+      detectCapabilities: vi.fn().mockResolvedValue({
+        level: 'mcp',
+        mcpAvailable: true,
+        mcpTools: ['test_workflow'],
+      }),
+      executeSmoke: vi.fn().mockRejectedValue(new Error('Workflow not found on n8n')),
+    });
 
-      const request: ValidationRequest = {
-        ...baseRequest,
-        layer: 'execution',
-        callTool,
-      };
+    const request: ValidationRequest = {
+      ...baseRequest,
+      layer: 'execution',
+      callTool,
+    };
 
-      const result = await interpret(request, deps);
+    const result = await interpret(request, deps);
 
-      expect(result.status).toBe('error');
-      expect(result.errors[0]!.message).toContain('Workflow not found');
-    } finally {
-      delete process.env['N8N_HOST'];
-      delete process.env['N8N_API_KEY'];
-    }
+    expect(result.status).toBe('error');
+    expect(result.errors[0]!.message).toContain('Workflow not found');
   });
 
   it('propagates static analysis internal errors (does not catch)', async () => {
@@ -874,7 +851,6 @@ describe('interpret() — MCP smoke test path', () => {
     const deps = createMockDeps({
       detectCapabilities: vi.fn().mockResolvedValue({
         level: 'mcp',
-        restReadable: true,
         mcpAvailable: true,
         mcpTools: ['test_workflow'],
       }),

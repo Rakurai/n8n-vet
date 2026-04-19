@@ -69,7 +69,7 @@ The architecture must serve these goals, derived from the vision, PRD, and engin
           │  artifacts │  └──────┘ │
           └───────────┘     ┌──────▼──────────┐
                             │  n8n instance    │
-                            │  (REST API, MCP) │
+                            │  (MCP)           │
                             └─────────────────┘
 ```
 
@@ -79,9 +79,7 @@ The architecture must serve these goals, derived from the vision, PRD, and engin
 
 **n8n instance** is the execution backend. It is required only for execution-backed validation. Static analysis operates entirely offline.
 
-**REST API** is the primary runtime integration surface for execution. It is the only surface that supports bounded execution via `destinationNode`.
-
-**n8n MCP tools** are used for whole-workflow smoke tests (`test_workflow`), execution result inspection (`get_execution`), and pin data schema discovery (`prepare_test_pin_data`). Internal MCP use is optional and capability-driven, not ideological.
+**n8n MCP tools** are used for whole-workflow execution (`test_workflow`), execution result inspection (`get_execution`), and pin data schema discovery (`prepare_test_pin_data`). MCP is the sole execution backend.
 
 **The agent** is the sole direct consumer. It calls n8n-vet's MCP tool surface, receives structured diagnostic summaries, and decides what to fix next.
 
@@ -148,8 +146,8 @@ Manages execution-backed validation when runtime evidence is needed. Responsibil
 
 - Construct pin data for mocked execution
 - Push workflows to n8n if needed
-- Execute bounded subgraphs via the REST API (`destinationNode`)
-- Execute whole-workflow smoke tests via MCP (`test_workflow`)
+- Execute workflows via MCP (`test_workflow`)
+- Execute bounded subgraphs via MCP tools
 - Poll for and retrieve execution results
 - Extract per-node results, errors, and path information from execution data
 
@@ -215,7 +213,7 @@ Agent request (requesting execution-backed validation)
     → Resolve target; consult trust state; apply guardrails
     → Optionally run static analysis first (catch cheap errors before paying execution cost)
     → Determine execution strategy:
-        - Bounded execution (REST API with destinationNode) for slice validation
+        - Bounded execution via MCP tools for slice validation
         - Whole-workflow execution (MCP test_workflow) for smoke tests
   → Execution orchestration
     → Discover or construct pin data for mocked nodes
@@ -318,26 +316,15 @@ The preferred integration model is direct package/library consumption where stab
 
 The product should avoid unnecessary CLI subprocess wrapping, but later specification may allow selective use of command surfaces if they prove to be the most stable option for a specific capability.
 
-### REST API (required for bounded execution)
+### MCP tools (execution backend)
 
-Used when execution-backed validation targets a slice rather than the whole workflow:
+Used for all execution-backed validation:
 
-- `POST /workflows/:id/run` with `destinationNode`: the only surface that supports partial/bounded execution
-- `GET /executions/:id`: execution result retrieval (alternative to MCP `get_execution`)
-
-The REST API is the primary execution backend because it is the only one that exposes n8n's partial execution engine.
-
-Authentication is resolved from n8nac configuration (host + API key from `n8nac-config.json` and the global credential store), with environment variable fallback.
-
-### MCP tools (optional, capability-driven)
-
-Used when available and when they provide a capability advantage:
-
-- `test_workflow`: whole-workflow execution with pin data (synchronous, simpler than REST for smoke tests)
+- `test_workflow`: workflow execution with pin data (synchronous)
 - `get_execution`: execution result inspection with node-name filtering and data truncation
 - `prepare_test_pin_data`: pin data schema discovery (tiered: execution history, node type schemas, empty stubs)
 
-MCP tools are not required. If unavailable (n8n instance unreachable, workflow not MCP-enabled, MCP server not running), the system degrades to REST API or static-only mode. The system never fails hard because MCP is unavailable.
+MCP tools are required for execution-backed validation. If unavailable (n8n instance unreachable, MCP server not running), the system degrades to static-only mode. The system never fails hard because MCP is unavailable.
 
 ### Capability degradation
 
@@ -346,8 +333,7 @@ The system operates in progressively reduced modes depending on what is availabl
 | Available | Capabilities |
 |-----------|-------------|
 | Local files + n8nac packages | Full static analysis |
-| + n8n REST API | + bounded execution, execution inspection |
-| + n8n MCP tools | + whole-workflow smoke tests, pin data discovery, filtered inspection |
+| + n8n MCP tools | + workflow execution, pin data discovery, execution inspection |
 
 The diagnostic summary always reports which capabilities were available and which evidence layers were used, so the agent understands the basis for the result.
 
@@ -480,7 +466,7 @@ Examples: broken expression reference, data loss through replacement node, schem
 
 The validation could not be performed or completed due to problems outside the workflow itself.
 
-Examples: n8n instance unreachable, API authentication failure, execution timeout, push/deploy failure, malformed workflow file, pin data construction failure.
+Examples: n8n instance unreachable, execution timeout, push/deploy failure, malformed workflow file, pin data construction failure.
 
 These must not be conflated with workflow errors. The agent cannot fix them by editing the workflow.
 
@@ -488,7 +474,7 @@ These must not be conflated with workflow errors. The agent cannot fix them by e
 
 The requested validation requires a capability that is not currently available.
 
-Examples: execution-backed validation requested but no n8n instance configured, bounded execution requested but REST API unreachable, MCP tool needed but not available.
+Examples: execution-backed validation requested but no n8n instance configured, MCP tool needed but not available.
 
 The system should degrade gracefully: offer what it can (e.g., static analysis instead of execution) and report what it cannot do and why.
 

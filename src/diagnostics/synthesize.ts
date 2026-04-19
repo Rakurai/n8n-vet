@@ -119,7 +119,6 @@ const SynthesisInputSchema = z.object({
   }),
   capabilities: z.object({
     staticAnalysis: z.literal(true),
-    restReadable: z.boolean(),
     mcpTools: z.boolean(),
   }),
   meta: z.object({
