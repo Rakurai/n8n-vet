@@ -87,3 +87,9 @@ export type {
   NodeSchema,
   SchemaProperty,
 } from './static-analysis/schemas.js';
+
+// Diagnostics — public API
+export { synthesize, SynthesisError } from './diagnostics/synthesize.js';
+
+// Diagnostics types
+export type { SynthesisInput } from './diagnostics/types.js';

@@ -82,9 +82,9 @@ export interface NodeAnnotation {
   reason: string;
 }
 
-/** A non-blocking informational hint attached to a specific node. */
+/** A non-blocking informational hint, optionally attached to a specific node. */
 export interface DiagnosticHint {
-  node: NodeIdentity;
+  node: NodeIdentity | null;
   message: string;
   severity: 'info' | 'warning' | 'danger';
 }
