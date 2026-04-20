@@ -21,64 +21,31 @@ import type { AgentTarget } from '../types/target.js';
 
 // ── Input schemas ────────────────────────────────────────────────
 
-const ValidateInputSchema = z.discriminatedUnion('kind', [
-  z
-    .object({
-      kind: z.literal('changed'),
-      workflowPath: z.string().min(1),
-      force: z.boolean().optional(),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('nodes'),
-      workflowPath: z.string().min(1),
-      nodes: z.array(z.string()).min(1),
-      force: z.boolean().optional(),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('workflow'),
-      workflowPath: z.string().min(1),
-      force: z.boolean().optional(),
-    })
-    .strict(),
-]);
+// Flat object schemas — the MCP SDK cannot serialize z.discriminatedUnion
+// to JSON Schema (normalizeObjectSchema returns undefined for non-object types,
+// producing an empty properties:{} schema on the wire). We use a single object
+// and validate nodes-requires-array in the handler via resolveTarget().
+// We also cannot use .refine() — the SDK's normalizeObjectSchema doesn't
+// unwrap ZodEffects, so .refine() also produces properties:{}.
 
-const TestInputSchema = z.discriminatedUnion('kind', [
-  z
-    .object({
-      kind: z.literal('changed'),
-      workflowPath: z.string().min(1),
-      force: z.boolean().optional(),
-      pinData: z
-        .record(z.array(z.object({ json: z.record(z.unknown()) }).passthrough()))
-        .optional(),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('nodes'),
-      workflowPath: z.string().min(1),
-      nodes: z.array(z.string()).min(1),
-      force: z.boolean().optional(),
-      pinData: z
-        .record(z.array(z.object({ json: z.record(z.unknown()) }).passthrough()))
-        .optional(),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('workflow'),
-      workflowPath: z.string().min(1),
-      force: z.boolean().optional(),
-      pinData: z
-        .record(z.array(z.object({ json: z.record(z.unknown()) }).passthrough()))
-        .optional(),
-    })
-    .strict(),
-]);
+const ValidateInputSchema = z
+  .object({
+    kind: z.enum(['changed', 'nodes', 'workflow']),
+    workflowPath: z.string().min(1),
+    nodes: z.array(z.string()).optional(),
+    force: z.boolean().optional(),
+  });
+
+const TestInputSchema = z
+  .object({
+    kind: z.enum(['changed', 'nodes', 'workflow']),
+    workflowPath: z.string().min(1),
+    nodes: z.array(z.string()).optional(),
+    force: z.boolean().optional(),
+    pinData: z
+      .record(z.array(z.object({ json: z.record(z.unknown()) }).passthrough()))
+      .optional(),
+  });
 
 const TrustStatusInputSchema = {
   workflowPath: z.string().min(1),

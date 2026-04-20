@@ -427,3 +427,27 @@ describe('MCP server — error envelopes', () => {
     }
   });
 });
+
+describe('MCP server — schema visibility', () => {
+  it('validate and test schemas expose kind and workflowPath properties', () => {
+    const deps = createMockDeps({});
+    const server = createServer(deps);
+    const internal = server as unknown as {
+      _registeredTools: Record<string, { inputSchema?: unknown }>;
+    };
+
+    for (const toolName of ['validate', 'test']) {
+      const tool = internal._registeredTools[toolName];
+      expect(tool, `${toolName} tool not registered`).toBeDefined();
+      expect(tool.inputSchema, `${toolName} inputSchema missing`).toBeDefined();
+
+      // The schema must be a Zod object with a shape containing kind and workflowPath.
+      // This catches the discriminatedUnion regression where normalizeObjectSchema
+      // returned undefined, causing the MCP SDK to emit properties:{}.
+      const schema = tool.inputSchema as { shape?: Record<string, unknown> };
+      expect(schema.shape, `${toolName} schema has no shape (not a ZodObject)`).toBeDefined();
+      expect(schema.shape).toHaveProperty('kind');
+      expect(schema.shape).toHaveProperty('workflowPath');
+    }
+  });
+});

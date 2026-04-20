@@ -112,7 +112,22 @@ function resolveChanged(
 
   if (changeSet !== null) {
     // Precise detection from snapshot diff
-    seedNames = [...changeSet.added, ...changeSet.modified.map((m) => m.node)];
+    const diffSeeds = new Set<NodeIdentity>([
+      ...changeSet.added,
+      ...changeSet.modified.map((m) => m.node),
+    ]);
+
+    // Also include nodes present in the graph but absent from trust state.
+    // These are nodes that existed before the last validation but were never
+    // included in the validation target — they have no trust record and are
+    // definitionally "changed" relative to the trust store.
+    for (const [name] of graph.nodes) {
+      if (!trustState.nodes.has(name)) {
+        diffSeeds.add(name);
+      }
+    }
+
+    seedNames = [...diffSeeds];
   } else {
     // Approximate detection from trust state content hashes
     seedNames = approximateChanges(graph, trustState);

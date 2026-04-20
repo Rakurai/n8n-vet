@@ -32,14 +32,15 @@ describe('evaluate pipeline', () => {
   });
 
   describe('Step 2: empty target', () => {
-    it('returns refuse with overridable=false when target has no nodes', () => {
+    it('returns actionable refuse when target has no nodes', () => {
       const input = makeEvaluationInput({
         targetNodes: nodeSet(),
       });
       const decision = evaluate(input);
 
       expect(decision.action).toBe('refuse');
-      expect(decision.overridable).toBe(false);
+      expect(decision.overridable).toBe(true);
+      expect(decision.explanation).toContain('No changes detected');
       expect(decision.evidence).toBeDefined();
     });
   });
@@ -447,7 +448,8 @@ describe('full pipeline integration — deterministic evaluation order', () => {
     });
     const decision = evaluate(input);
     expect(decision.action).toBe('refuse');
-    expect(decision.overridable).toBe(false);
+    expect(decision.overridable).toBe(true);
+    expect(decision.explanation).toContain('trusted');
   });
 
   it('Step 3 wins over Steps 4-8: test-refusal fires when tool=test and no escalation triggers', () => {

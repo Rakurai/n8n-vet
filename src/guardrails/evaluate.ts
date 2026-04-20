@@ -43,13 +43,26 @@ export function evaluate(input: EvaluationInput): GuardrailDecision {
     };
   }
 
-  // Step 2: Empty target (precondition — not a guardrail action)
+  // Step 2: Empty target (precondition)
+  // With B2 fix, this only fires when all nodes are trusted AND unchanged.
+  // Still overridable — the user may want to force re-validation.
   if (input.targetNodes.size === 0) {
+    const totalNodes = input.graph.nodes.size;
+    const trustedCount = input.trustState.nodes.size;
+    const untrustedCount = totalNodes - trustedCount;
+
+    let explanation = 'No changes detected — nothing to validate.';
+    if (untrustedCount > 0) {
+      explanation += ` ${untrustedCount} untrusted node(s) exist — use kind:'nodes' or kind:'workflow' to target them.`;
+    } else if (trustedCount > 0) {
+      explanation += ` All ${trustedCount} node(s) are trusted. Use force:true to re-validate.`;
+    }
+
     return {
       action: 'refuse',
-      explanation: 'Target contains no nodes — nothing to validate.',
+      explanation,
       evidence,
-      overridable: false,
+      overridable: true,
     };
   }
 

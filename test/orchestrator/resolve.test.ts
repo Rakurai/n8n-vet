@@ -181,12 +181,24 @@ describe('resolveTarget', () => {
       expect(result.slice.entryPoints).toContain('A');
     });
 
-    it('returns empty slice with no changes when changeSet has no modifications', () => {
+    it('returns empty slice when changeSet has no modifications and all nodes trusted', () => {
       const graph = linearGraph();
       const changeSet = emptyChangeSet();
       changeSet.unchanged = ['A', 'B', 'C', 'D'] as NodeIdentity[];
 
-      const result = resolveTarget({ kind: 'changed' }, graph, changeSet, emptyTrustState());
+      // All nodes have trust records — nothing untrusted, nothing changed
+      const trustState = emptyTrustState();
+      for (const name of ['A', 'B', 'C', 'D']) {
+        trustState.nodes.set(name as NodeIdentity, {
+          contentHash: `hash-${name}`,
+          validatedBy: 'run-1',
+          validatedAt: '2026-01-01',
+          validatedWith: 'static',
+          fixtureHash: null,
+        });
+      }
+
+      const result = resolveTarget({ kind: 'changed' }, graph, changeSet, trustState);
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
@@ -234,6 +246,41 @@ describe('resolveTarget', () => {
 
       // Everything is "changed" when there's no trust
       expect(result.target.nodes.length).toBe(4);
+    });
+
+    it('includes nodes with no trust record even when changeSet reports no diff', () => {
+      const graph = linearGraph();
+      // Trust state covers A and B only — C and D were never validated
+      const trustState = emptyTrustState();
+      trustState.nodes.set('A' as NodeIdentity, {
+        contentHash: 'hash-a',
+        validatedBy: 'run-1',
+        validatedAt: '2026-01-01',
+        validatedWith: 'static',
+        fixtureHash: null,
+      });
+      trustState.nodes.set('B' as NodeIdentity, {
+        contentHash: 'hash-b',
+        validatedBy: 'run-1',
+        validatedAt: '2026-01-01',
+        validatedWith: 'static',
+        fixtureHash: null,
+      });
+
+      // Snapshot diff says nothing changed (file identical to last snapshot)
+      const changeSet: NodeChangeSet = { changed: [], added: [], removed: [], modified: [] };
+
+      const result = resolveTarget({ kind: 'changed' }, graph, changeSet, trustState);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+
+      // C and D have no trust record — they must be included as seeds
+      expect(result.slice.seedNodes.has('C' as NodeIdentity)).toBe(true);
+      expect(result.slice.seedNodes.has('D' as NodeIdentity)).toBe(true);
+      // A and B are trusted and unchanged — should not be seeds
+      expect(result.slice.seedNodes.has('A' as NodeIdentity)).toBe(false);
+      expect(result.slice.seedNodes.has('B' as NodeIdentity)).toBe(false);
     });
   });
 
