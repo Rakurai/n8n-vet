@@ -93,7 +93,7 @@ Already in progress. These are the audit.findings.md items.
 | C1 | Update README: fix repo URL, add Claude plugin install instructions, verify CLI examples still work | A11 |
 | C2 | Write CHANGELOG.md with actual v0.1.0 entries | B5 (needs final feature list) |
 | C3 | Review and trim CONCEPTS.md for public audience | — |
-| C4 | Move internal docs to `docs/internal/`: audit files, PRD, research, specs | — |
+| C4 | Move internal docs to `docs/internal/`: audit files, PRD, research | — |
 | C5 | Update plugin.json: set repo to `Rakurai/n8n-vet` | — |
 | C6 | Update SKILL.md: verify tool descriptions match current API | B5 |
 

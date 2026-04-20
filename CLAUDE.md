@@ -56,8 +56,6 @@ parse → graph → trust → target → guardrails → static analysis → exec
 - `src/surface.ts` — public surface helpers (trust status reports, guardrail explanations)
 - `src/errors.ts` — error mapping to MCP error types
 
-**Specs:** Each implementation phase has a full design package in `specs/NNN-feature-name/` with spec.md, plan.md, tasks.md, contracts/, research, and audit findings.
-
 ## Design Documents
 
 Read these before making architectural decisions:

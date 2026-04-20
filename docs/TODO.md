@@ -21,8 +21,6 @@ When MCP `test_workflow` executes the whole workflow, nodes outside the target s
 - For nodes outside the target slice that show `executionStatus: 'success'`, record trust evidence
 - Turns whole-workflow execution into a trust-coverage advantage: every execution produces more trust coverage than requested
 
-Depends on confirming whole-workflow execution as the permanent model. Design in specs/012-execution-backend-revision/prd.md lines 43-51.
-
 ### Static Analysis — Disconnected Node Detection
 
 `broken-wiring.ts` fixture passes static analysis because orphaned/disconnected node detection is not implemented. The integration test (scenario 01) documents this explicitly. Scope: add a graph-connectivity check in `src/static-analysis/` that flags nodes with no path from a trigger. (test/integration/scenarios/01-static-only.ts lines 6, 40)
@@ -61,7 +59,7 @@ Items that might be unblocked with some investigation, or have soft dependencies
 
 Items with hard external dependencies that cannot be resolved by this project alone.
 
-- **Bounded execution (`destinationNode`)** — True bounded execution is not available from any public n8n surface. Three options for future investigation: (1) n8n feature request to expose `destinationNode` on MCP `test_workflow`, (2) internal API with session auth (fragile, undocumented), (3) import `@n8n/core` directly (heavy, brittle). None suitable until n8n acts. (specs/012-execution-backend-revision/prd.md lines 35-41)
+- **Bounded execution (`destinationNode`)** — True bounded execution is not available from any public n8n surface. Three options for future investigation: (1) n8n feature request to expose `destinationNode` on MCP `test_workflow`, (2) internal API with session auth (fragile, undocumented), (3) import `@n8n/core` directly (heavy, brittle). None suitable until n8n acts.
 
 - **Credential type validation** — Deferred because it requires a credential type registry not available from `NodeSchemaProvider` in v1. Currently a no-op in `src/static-analysis/params.ts:52`. Needs either a bundled registry or a way to query n8n for credential type schemas. (audit finding PH-001)
 
