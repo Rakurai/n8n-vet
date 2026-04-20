@@ -95,8 +95,13 @@ export function evaluate(input: EvaluationInput): GuardrailDecision {
     }
   }
 
-  // Step 6: Broad-target warn
-  if (input.targetNodes.size / input.graph.nodes.size > BROAD_TARGET_WARN_RATIO) {
+  // Step 6: Broad-target warn (suppress on first-ever validation — no prior state to narrow against)
+  const isFirstValidation =
+    evidence.changedNodes.length === 0 && evidence.trustedNodes.length === 0;
+  if (
+    !isFirstValidation &&
+    input.targetNodes.size / input.graph.nodes.size > BROAD_TARGET_WARN_RATIO
+  ) {
     return {
       action: 'warn',
       explanation: `Target covers ${Math.round((input.targetNodes.size / input.graph.nodes.size) * 100)}% of workflow nodes — consider narrowing to the changed region.`,

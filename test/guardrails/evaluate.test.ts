@@ -246,12 +246,13 @@ describe('evaluate pipeline', () => {
       const graph = branchingGraph();
       const allNames = [...graph.nodes.keys()];
       const targetNames = allNames.slice(0, 8);
+      // Provide prior trust so this isn't treated as first-ever validation
       const input = makeEvaluationInput({
         graph,
         targetNodes: nodeSet(...targetNames),
         changeSet: noChanges(targetNames),
         currentHashes: uniformHashes(allNames),
-        trustState: emptyTrustState(),
+        trustState: partialTrustState([allNames[0]]),
         layer: 'static',
       });
       const decision = evaluate(input);
@@ -270,7 +271,7 @@ describe('evaluate pipeline', () => {
         targetNodes: nodeSet(...targetNames),
         changeSet: noChanges(targetNames),
         currentHashes: uniformHashes(allNames),
-        trustState: emptyTrustState(),
+        trustState: partialTrustState([allNames[0]]),
         layer: 'static',
       });
       const decision = evaluate(input);
@@ -288,11 +289,28 @@ describe('evaluate pipeline', () => {
         targetNodes: nodeSet(...targetNames),
         changeSet: noChanges(targetNames),
         currentHashes: uniformHashes(allNames),
+        trustState: partialTrustState([allNames[0]]),
+        layer: 'static',
+      });
+      const decision = evaluate(input);
+
+      expect(decision.action).not.toBe('warn');
+    });
+
+    it('does not warn on first-ever validation even at 100% coverage', () => {
+      const graph = branchingGraph();
+      const allNames = [...graph.nodes.keys()];
+      const input = makeEvaluationInput({
+        graph,
+        targetNodes: nodeSet(...allNames),
+        changeSet: noChanges(allNames),
+        currentHashes: uniformHashes(allNames),
         trustState: emptyTrustState(),
         layer: 'static',
       });
       const decision = evaluate(input);
 
+      // First-ever validation: no changed nodes, no trusted nodes → suppress warning
       expect(decision.action).not.toBe('warn');
     });
   });
@@ -434,7 +452,7 @@ describe('full pipeline integration — deterministic evaluation order', () => {
       targetNodes: nodeSet(...targetNames),
       changeSet: noChanges(targetNames),
       currentHashes: uniformHashes(allNames),
-      trustState: emptyTrustState(),
+      trustState: partialTrustState([allNames[0]]),
       priorSummary: null,
       layer: 'static',
     });
