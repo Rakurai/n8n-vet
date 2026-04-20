@@ -8,7 +8,7 @@
 import type { AvailableCapabilities } from './diagnostic.js';
 import type { GuardrailDecision } from './guardrail.js';
 import type { NodeIdentity } from './identity.js';
-import type { ValidationLayer } from './target.js';
+import type { ValidationEvidence } from './target.js';
 
 // ── TrustStatusReport ────────────────────────────────────────────
 
@@ -25,7 +25,7 @@ export interface TrustStatusReport {
 export interface TrustedNodeInfo {
   name: NodeIdentity;
   validatedAt: string;
-  validationLayer: ValidationLayer;
+  validatedWith: ValidationEvidence;
   contentUnchanged: boolean;
 }
 
@@ -42,6 +42,14 @@ export interface GuardrailExplanation {
   guardrailDecision: GuardrailDecision;
   targetResolution: TargetResolutionInfo;
   capabilities: AvailableCapabilities;
+  /** Precondition status for the requested tool. Present when tool='test'. */
+  preconditions?: TestPreconditions;
+}
+
+/** Precondition checks for the test tool, reported by explain. */
+export interface TestPreconditions {
+  mcpAvailable: boolean;
+  metadataIdPresent: boolean;
 }
 
 /** How the agent's target would resolve. */

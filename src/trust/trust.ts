@@ -7,7 +7,7 @@
 
 import type { WorkflowGraph } from '../types/graph.js';
 import type { NodeIdentity } from '../types/identity.js';
-import type { ValidationLayer } from '../types/target.js';
+import type { ValidationEvidence } from '../types/target.js';
 import type { ChangeKind, NodeChangeSet, NodeTrustRecord, TrustState } from '../types/trust.js';
 import { TrustRecordingError } from './errors.js';
 import { computeContentHash } from './hash.js';
@@ -27,7 +27,7 @@ export function recordValidation(
   state: TrustState,
   nodes: NodeIdentity[],
   graph: WorkflowGraph,
-  layer: ValidationLayer,
+  layer: ValidationEvidence,
   runId: string,
   fixtureHash: string | null,
 ): TrustState {
@@ -44,7 +44,7 @@ export function recordValidation(
       contentHash: computeContentHash(graphNode, graph.ast),
       validatedBy: runId,
       validatedAt: timestamp,
-      validationLayer: layer,
+      validatedWith: layer,
       fixtureHash,
     };
 

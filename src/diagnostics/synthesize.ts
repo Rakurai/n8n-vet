@@ -8,7 +8,7 @@
 
 import { z } from 'zod';
 import type { DiagnosticSummary } from '../types/diagnostic.js';
-import type { ValidationLayer } from '../types/target.js';
+import type { ValidationEvidence } from '../types/target.js';
 import { assignAnnotations } from './annotations.js';
 import { classifyExecutionErrors, classifyStaticFindings, orderErrors } from './errors.js';
 import { collectHints } from './hints.js';
@@ -56,11 +56,7 @@ export function synthesize(input: SynthesisInput): DiagnosticSummary {
 
   const executedPath = reconstructPath(executionData);
 
-  const evidenceBasis = determineEvidenceBasis(
-    staticFindings,
-    executionData,
-    input.staticAnalysisRan,
-  );
+  const evidenceBasis = determineEvidenceBasis(executionData);
 
   return {
     schemaVersion: 1,
@@ -137,13 +133,9 @@ function validateInput(input: SynthesisInput): void {
 }
 
 function determineEvidenceBasis(
-  staticFindings: SynthesisInput['staticFindings'],
   executionData: SynthesisInput['executionData'],
-  staticAnalysisRan?: boolean,
-): ValidationLayer {
-  const staticRan = staticAnalysisRan ?? staticFindings.length > 0;
+): ValidationEvidence {
   const executionRan = executionData !== null;
-  if (staticRan && executionRan) return 'both';
   if (executionRan) return 'execution';
   return 'static';
 }

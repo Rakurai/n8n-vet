@@ -1,7 +1,7 @@
 /**
  * Scenario 01: Static-only validation
  *
- * Validates data-loss-passthrough.ts with layer 'static' and asserts a
+ * Validates data-loss-passthrough.ts with tool 'validate' and asserts a
  * data-loss wiring finding. Also validates broken-wiring.ts (passes static
  * because disconnected-node detection is not yet implemented).
  * Asserts execution engine was not invoked (executedPath is null).
@@ -23,7 +23,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
     {
       workflowPath: dataLossPath,
       target: { kind: 'workflow' },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     },
@@ -43,7 +43,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
     {
       workflowPath: brokenWiringPath,
       target: { kind: 'workflow' },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     },

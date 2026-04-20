@@ -1,5 +1,5 @@
 /**
- * MCP server — registers three tools (validate, trust_status, explain) and
+ * MCP server — registers four tools (validate, test, trust_status, explain) and
  * exposes them to agents via the MCP protocol.
  *
  * This is a thin delegation layer. Tool handlers parse input, apply defaults,
@@ -17,45 +17,81 @@ import type { OrchestratorDeps } from '../orchestrator/types.js';
 import type { ValidationRequest } from '../orchestrator/types.js';
 import { buildGuardrailExplanation, buildTrustStatusReport } from '../surface.js';
 import type { NodeIdentity } from '../types/identity.js';
-import type { AgentTarget, ValidationLayer } from '../types/target.js';
+import type { AgentTarget } from '../types/target.js';
 
 // ── Input schemas ────────────────────────────────────────────────
 
 const ValidateInputSchema = z.discriminatedUnion('kind', [
-  z.object({
-    kind: z.literal('changed'),
-    workflowPath: z.string().min(1),
-    layer: z.enum(['static', 'execution', 'both']).optional(),
-    force: z.boolean().optional(),
-    pinData: z.record(z.array(z.object({ json: z.record(z.unknown()) }).passthrough())).optional(),
-  }),
-  z.object({
-    kind: z.literal('nodes'),
-    workflowPath: z.string().min(1),
-    nodes: z.array(z.string()).min(1),
-    layer: z.enum(['static', 'execution', 'both']).optional(),
-    force: z.boolean().optional(),
-    pinData: z.record(z.array(z.object({ json: z.record(z.unknown()) }).passthrough())).optional(),
-  }),
-  z.object({
-    kind: z.literal('workflow'),
-    workflowPath: z.string().min(1),
-    layer: z.enum(['static', 'execution', 'both']).optional(),
-    force: z.boolean().optional(),
-    pinData: z.record(z.array(z.object({ json: z.record(z.unknown()) }).passthrough())).optional(),
-  }),
+  z
+    .object({
+      kind: z.literal('changed'),
+      workflowPath: z.string().min(1),
+      force: z.boolean().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('nodes'),
+      workflowPath: z.string().min(1),
+      nodes: z.array(z.string()).min(1),
+      force: z.boolean().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('workflow'),
+      workflowPath: z.string().min(1),
+      force: z.boolean().optional(),
+    })
+    .strict(),
+]);
+
+const TestInputSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('changed'),
+      workflowPath: z.string().min(1),
+      force: z.boolean().optional(),
+      pinData: z
+        .record(z.array(z.object({ json: z.record(z.unknown()) }).passthrough()))
+        .optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('nodes'),
+      workflowPath: z.string().min(1),
+      nodes: z.array(z.string()).min(1),
+      force: z.boolean().optional(),
+      pinData: z
+        .record(z.array(z.object({ json: z.record(z.unknown()) }).passthrough()))
+        .optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('workflow'),
+      workflowPath: z.string().min(1),
+      force: z.boolean().optional(),
+      pinData: z
+        .record(z.array(z.object({ json: z.record(z.unknown()) }).passthrough()))
+        .optional(),
+    })
+    .strict(),
 ]);
 
 const TrustStatusInputSchema = {
   workflowPath: z.string().min(1),
 };
 
-const ExplainInputSchema = {
-  workflowPath: z.string().min(1),
-  kind: z.enum(['nodes', 'changed', 'workflow']).optional(),
-  nodes: z.array(z.string()).optional(),
-  layer: z.enum(['static', 'execution', 'both']).optional(),
-};
+const ExplainInputSchema = z
+  .object({
+    workflowPath: z.string().min(1),
+    kind: z.enum(['nodes', 'changed', 'workflow']).optional(),
+    nodes: z.array(z.string()).optional(),
+    tool: z.enum(['validate', 'test']).default('validate'),
+  })
+  .strict();
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -83,11 +119,6 @@ function resolveTarget(raw: {
   return { kind: 'changed' };
 }
 
-function resolveLayer(raw?: string): ValidationLayer {
-  if (raw === 'execution' || raw === 'both') return raw;
-  return 'static';
-}
-
 /** Validate that workflowPath resolves under the project root (cwd). Throws on traversal. */
 function validatePathBoundary(workflowPath: string): string {
   const resolved = resolve(workflowPath);
@@ -100,7 +131,7 @@ function validatePathBoundary(workflowPath: string): string {
 
 // ── Server factory ───────────────────────────────────────────────
 
-/** Create an MCP server with all three n8n-vet tools registered. */
+/** Create an MCP server with all four n8n-vet tools registered. */
 export function createServer(
   deps: OrchestratorDeps,
   callTool?: McpToolCaller,
@@ -125,7 +156,35 @@ export function createServer(
         const request: ValidationRequest = {
           workflowPath: args.workflowPath,
           target,
-          layer: resolveLayer(args.layer),
+          tool: 'validate',
+          force: args.force ?? false,
+          pinData: null,
+        };
+        const summary = await interpret(request, deps);
+        return wrapSuccess(summary);
+      } catch (error) {
+        return wrapError(error);
+      }
+    },
+  );
+
+  // ── test ─────────────────────────────────────────────────────
+  server.registerTool(
+    'test',
+    {
+      description: 'Test an n8n workflow via execution. Requires n8n MCP connection.',
+      inputSchema: TestInputSchema,
+    },
+    async (args) => {
+      try {
+        validatePathBoundary(args.workflowPath);
+        const target = resolveTarget(args);
+        if (target instanceof Error) return wrapError(target);
+
+        const request: ValidationRequest = {
+          workflowPath: args.workflowPath,
+          target,
+          tool: 'test',
           force: args.force ?? false,
           pinData: args.pinData ?? null,
           ...(callTool ? { callTool } : {}),
@@ -175,7 +234,7 @@ export function createServer(
         const explanation = await buildGuardrailExplanation(
           args.workflowPath,
           target,
-          resolveLayer(args.layer),
+          args.tool,
           deps,
         );
         return wrapSuccess(explanation);

@@ -22,7 +22,6 @@ async function run(ctx: IntegrationContext): Promise<void> {
     const validateResult = await client.validate({
       workflowPath: happyPath,
       kind: 'workflow',
-      layer: 'static',
     });
 
     if (!validateResult.success) {
@@ -47,7 +46,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
     // Test 3: explain with valid input
     const explainResult = await client.explain({
       workflowPath: happyPath,
-      layer: 'static',
+      tool: 'validate',
     });
 
     if (!explainResult.success) {
@@ -62,7 +61,6 @@ async function run(ctx: IntegrationContext): Promise<void> {
     const invalidResult = await client.validate({
       workflowPath: 'nonexistent/workflow.ts',
       kind: 'workflow',
-      layer: 'static',
     });
 
     if (!invalidResult.success) {

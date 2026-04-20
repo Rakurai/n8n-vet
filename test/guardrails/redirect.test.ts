@@ -26,7 +26,7 @@ describe('assessEscalationTriggers', () => {
       ),
       currentHashes: uniformHashes(allNames),
       trustState: emptyTrustState(),
-      layer: 'both',
+      tool: 'test',
     });
 
     const result = assessEscalationTriggers(input);
@@ -47,7 +47,7 @@ describe('assessEscalationTriggers', () => {
       ),
       currentHashes: uniformHashes(allNames),
       trustState: emptyTrustState(),
-      layer: 'both',
+      tool: 'test',
     });
 
     const result = assessEscalationTriggers(input);
@@ -68,7 +68,7 @@ describe('assessEscalationTriggers', () => {
       ),
       currentHashes: uniformHashes(allNames),
       trustState: emptyTrustState(),
-      layer: 'both',
+      tool: 'test',
       expressionRefs: [makeExpressionRef('set', null, { raw: '={{ $json.data }}' })],
     });
 
@@ -92,7 +92,7 @@ describe('assessEscalationTriggers', () => {
       ),
       currentHashes: uniformHashes(allNames),
       trustState: emptyTrustState(),
-      layer: 'both',
+      tool: 'test',
       expressionRefs: [],
     });
 
@@ -116,7 +116,7 @@ describe('assessEscalationTriggers', () => {
       ),
       currentHashes: uniformHashes(allNames),
       trustState: emptyTrustState(),
-      layer: 'both',
+      tool: 'test',
     });
 
     const result = assessEscalationTriggers(input);
@@ -136,7 +136,7 @@ describe('assessEscalationTriggers', () => {
       ),
       currentHashes: uniformHashes(allNames),
       trustState: emptyTrustState(),
-      layer: 'both',
+      tool: 'test',
       llmValidationRequested: true,
     });
 
@@ -158,7 +158,7 @@ describe('assessEscalationTriggers', () => {
       ),
       currentHashes: uniformHashes(allNames),
       trustState: emptyTrustState(),
-      layer: 'both',
+      tool: 'test',
       expressionRefs: [
         makeExpressionRef('if', 'enrich', { raw: '={{ $("Enrich").item.json.status }}' }),
       ],
@@ -181,7 +181,7 @@ describe('assessEscalationTriggers', () => {
       ),
       currentHashes: uniformHashes(allNames),
       trustState: emptyTrustState(),
-      layer: 'both',
+      tool: 'test',
     });
 
     const result = assessEscalationTriggers(input);
@@ -202,13 +202,13 @@ describe('assessEscalationTriggers', () => {
       ),
       currentHashes: uniformHashes(allNames),
       trustState: emptyTrustState(),
-      layer: 'static',
+      tool: 'validate',
     });
 
-    // The pipeline should skip the redirect check entirely for static layer
+    // The pipeline should skip the test-refusal check entirely for validate tool
     const decision = evaluate(input);
-    // Should not be 'redirect' — proceed or other action
-    expect(decision.action).not.toBe('redirect');
+    // Should not be 'refuse' from test-refusal — proceed or other action
+    expect(decision.action).not.toBe('refuse');
   });
 
   it('unresolvable branching ref with opaque upstream → triggered', () => {
@@ -287,7 +287,7 @@ describe('assessEscalationTriggers', () => {
       ),
       currentHashes: uniformHashes(allNames),
       trustState: emptyTrustState(),
-      layer: 'both',
+      tool: 'test',
       expressionRefs: [
         makeExpressionRef('if', null, { raw: '={{ $json[dynamicKey] }}' }),
       ],
@@ -299,8 +299,8 @@ describe('assessEscalationTriggers', () => {
   });
 });
 
-describe('evaluate pipeline — redirect scenario', () => {
-  it('returns redirect when all changes are structurally analyzable', () => {
+describe('evaluate pipeline — test-refusal scenario', () => {
+  it('returns refuse when tool=test and all changes are structurally analyzable', () => {
     const graph = linearGraph();
     const allNames = [...graph.nodes.keys()];
     // Only modify 'output' (shape-preserving) with structurally analyzable changes
@@ -313,13 +313,12 @@ describe('evaluate pipeline — redirect scenario', () => {
       ),
       currentHashes: uniformHashes(allNames),
       trustState: emptyTrustState(),
-      layer: 'execution',
+      tool: 'test',
     });
 
     const decision = evaluate(input);
-    expect(decision.action).toBe('redirect');
-    if (decision.action === 'redirect') {
-      expect(decision.redirectedLayer).toBe('static');
-    }
+    expect(decision.action).toBe('refuse');
+    expect(decision.explanation).toMatch(/use validate instead/i);
+    expect(decision.overridable).toBe(true);
   });
 });

@@ -74,13 +74,14 @@ This project discourages broad or vague targets such as “the whole workflow”
 
 A **validation run** is one bounded act of validation performed by the tool.
 
-A validation run may involve:
+A validation run uses one of two evidence types:
 
-* static inspection (cheap, local, no n8n instance needed)
-* execution-backed validation (expensive, requires n8n instance)
-* or both
+* **static validation** (cheap, local, no n8n instance needed) — structural inspection, reference tracing, data-flow analysis
+* **execution-backed testing** (expensive, requires n8n instance) — live smoke test, path observation, runtime error detection
 
-Within those layers, a run may include:
+These are separate operations invoked via separate tools (`validate` and `test`). A single call produces one type of evidence, not both.
+
+Within a run, the tool may perform:
 
 * reference tracing and structural checking
 * contract/interface checking
@@ -90,7 +91,7 @@ Within those layers, a run may include:
 
 A validation run is not just "run the tests." It is a focused attempt to learn whether a specific target remains valid after a change.
 
-The diagnostic result of a validation run must indicate what kind of evidence was used (static, execution-backed, or both), so the agent and supervising human can understand the basis for the outcome.
+The diagnostic result of a validation run indicates which evidence type was used (`static` or `execution`), so the agent and supervising human can understand the basis for the outcome.
 
 ---
 
@@ -113,7 +114,7 @@ Bounded validation is central to the project. It is the opposite of broad, refle
 
 High validation locality means:
 
-* the agent is testing the thing it is working on
+* the agent is validating or testing the thing it is working on
 * errors are attributed near the actual change
 * unrelated graph regions do not need to be re-proven
 * the human or agent does not need to inspect distant parts of the workflow to understand the result
@@ -239,7 +240,7 @@ The tool should aim to detect, discourage, skip, collapse, or redirect redundant
 
 ## Compile+test step
 
-A **compile+test step** is the project’s model for execution-backed validation.
+A **compile+test step** is the project’s model for execution-backed testing.
 
 Because workflows are authored locally and deployed to n8n for execution, testing is not a trivial in-memory action. It has real operational cost:
 
@@ -248,19 +249,23 @@ Because workflows are authored locally and deployed to n8n for execution, testin
 * possible credentialed or external behavior
 * inspection overhead if diagnostics are poor
 
-The phrase “compile+test step” expresses that reality. It reminds us that execution-backed validation should be used deliberately, not reflexively.
+The phrase “compile+test step” expresses that reality. It reminds us that execution-backed testing is a separate, deliberate step — not a mode of validation, but a distinct operation invoked after the workflow is deployed.
 
 ---
 
-## Two-phase validation
+## Development lifecycle
 
-**Two-phase validation** is the operational model for how validation maps to the workflow development lifecycle.
+The **development lifecycle** is the operational model for how validation and testing map to the workflow development process.
 
-* **Phase 1 — Static (before push).** Static analysis runs locally against workflow source files. It does not require a running n8n instance. It catches structural and data-flow problems: broken expression references, data loss through replacement, schema mismatches, missing parameters. This phase is cheap, fast, and always available.
+The lifecycle has three steps:
 
-* **Phase 2 — Execution (after push).** Execution-backed validation runs against a live n8n instance after the workflow has been pushed/deployed. It catches runtime problems that static analysis cannot: Code node output shape, LLM response format, conditional logic correctness, actual data values. This phase has real cost and requires the workflow to exist in n8n.
+1. **Validate (before push).** Static analysis runs locally against workflow source files. It does not require a running n8n instance. It catches structural and data-flow problems: broken expression references, data loss through replacement, schema mismatches, missing parameters. This step is cheap, fast, and always available.
 
-The two phases are sequential: static analysis should always run first (it is the pre-flight check), and execution-backed validation is invoked only when runtime evidence is needed that static analysis cannot provide. The agent coordinates the push step between the two phases via n8nac.
+2. **Push.** The agent pushes the workflow to n8n via n8nac. This assigns `metadata.id` and deploys the workflow. n8n-vet does not push — the agent coordinates this step independently.
+
+3. **Test (after push).** Execution-backed testing runs against a live n8n instance after the workflow has been pushed/deployed. It catches runtime problems that static analysis cannot: Code node output shape, LLM response format, conditional logic correctness, actual data values. This step has real cost and requires the workflow to exist in n8n.
+
+Validate and test are separate tools producing separate evidence types (`static` and `execution` respectively). The agent coordinates the push step between them via n8nac.
 
 ---
 

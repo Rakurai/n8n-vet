@@ -4,7 +4,7 @@
  */
 
 import type { NodeIdentity } from './identity.js';
-import type { ValidationLayer } from './target.js';
+import type { ValidationEvidence } from './target.js';
 
 /** Per-workflow trust state, keyed by node identity. */
 export interface TrustState {
@@ -23,8 +23,8 @@ export interface NodeTrustRecord {
   validatedBy: string;
   /** ISO 8601 timestamp of the validation run. */
   validatedAt: string;
-  /** Which evidence layer produced this trust record. */
-  validationLayer: ValidationLayer;
+  /** Which evidence type produced this trust record. */
+  validatedWith: ValidationEvidence;
   /** Hash of fixture/pin-data used during validation; null for static-only trust. */
   fixtureHash: string | null;
 }

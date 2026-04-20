@@ -62,7 +62,7 @@ describe('recordValidation', () => {
       computeContentHash(graph.nodes.get('httpRequest')!, graph.ast),
     );
     expect(httpRecord.validatedBy).toBe('run-001');
-    expect(httpRecord.validationLayer).toBe('static');
+    expect(httpRecord.validatedWith).toBe('static');
     expect(httpRecord.fixtureHash).toBeNull();
     expect(httpRecord.validatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
@@ -81,7 +81,7 @@ describe('recordValidation', () => {
     );
 
     const record = result.nodes.get(ni('httpRequest'))!;
-    expect(record.validationLayer).toBe('execution');
+    expect(record.validatedWith).toBe('execution');
     expect(record.fixtureHash).toBe('fixture-hash-abc');
   });
 
@@ -96,7 +96,7 @@ describe('recordValidation', () => {
     const secondRecord = state.nodes.get(ni('httpRequest'))!;
 
     expect(secondRecord.validatedBy).toBe('run-002');
-    expect(secondRecord.validationLayer).toBe('execution');
+    expect(secondRecord.validatedWith).toBe('execution');
     expect(secondRecord.fixtureHash).toBe('fix-hash');
     expect(secondRecord.validatedBy).not.toBe(firstRecord.validatedBy);
   });
@@ -275,7 +275,7 @@ describe('invalidateTrust', () => {
       contentHash: 'old-hash',
       validatedBy: 'run-old',
       validatedAt: new Date().toISOString(),
-      validationLayer: 'static',
+      validatedWith: 'static',
       fixtureHash: null,
     });
     state = { ...state, nodes: staleNodes };

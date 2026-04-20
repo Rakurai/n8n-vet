@@ -22,7 +22,7 @@ import type { DiagnosticSummary, ResolvedTarget } from '../types/diagnostic.js';
 import type { NodeClassification, WorkflowGraph } from '../types/graph.js';
 import type { GuardrailDecision } from '../types/guardrail.js';
 import type { NodeIdentity } from '../types/identity.js';
-import type { AgentTarget, ValidationLayer } from '../types/target.js';
+import type { AgentTarget, ValidationEvidence } from '../types/target.js';
 import type { NodeChangeSet, TrustState } from '../types/trust.js';
 
 // ── Zod schema for edge validation ────────────────────────────────
@@ -33,12 +33,12 @@ const AgentTargetSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('workflow') }),
 ]);
 
-const ValidationLayerSchema = z.enum(['static', 'execution', 'both']);
+const ToolSchema = z.enum(['validate', 'test']);
 
 export const ValidationRequestSchema = z.object({
   workflowPath: z.string().min(1),
   target: AgentTargetSchema,
-  layer: ValidationLayerSchema,
+  tool: ToolSchema,
   force: z.boolean(),
   pinData: z.record(z.array(z.object({ json: z.record(z.unknown()) }).passthrough())).nullable(),
 });
@@ -49,7 +49,7 @@ export const ValidationRequestSchema = z.object({
 export interface ValidationRequest {
   workflowPath: string;
   target: AgentTarget;
-  layer: ValidationLayer;
+  tool: 'validate' | 'test';
   force: boolean;
   pinData: PinData | null;
   callTool?: McpToolCaller;
@@ -65,7 +65,7 @@ export interface ValidationRequest {
 export interface InterpretedRequest {
   resolvedTarget: ResolvedTarget;
   guardrailDecision: GuardrailDecision;
-  effectiveLayer: ValidationLayer;
+  tool: 'validate' | 'test';
   graph: WorkflowGraph;
   changeSet: NodeChangeSet | null;
   trustState: TrustState;
@@ -92,7 +92,7 @@ export interface OrchestratorDeps {
     state: TrustState,
     nodes: NodeIdentity[],
     graph: WorkflowGraph,
-    layer: ValidationLayer,
+    layer: ValidationEvidence,
     runId: string,
     fixtureHash: string | null,
   ) => TrustState;

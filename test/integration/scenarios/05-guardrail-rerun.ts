@@ -24,7 +24,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
     {
       workflowPath: happyPath,
       target: { kind: 'workflow' },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     },
@@ -38,7 +38,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
     {
       workflowPath: happyPath,
       target: { kind: 'workflow' },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     },
@@ -46,7 +46,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
   );
 
   const guardrailAction = result2.guardrailActions.find(
-    d => d.action === 'refuse' || d.action === 'redirect' || d.action === 'narrow' || d.action === 'warn',
+    d => d.action === 'refuse' || d.action === 'narrow' || d.action === 'warn',
   );
 
   if (!guardrailAction) {
@@ -59,7 +59,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
   const explanation = await buildGuardrailExplanation(
     happyPath,
     { kind: 'workflow' },
-    'static',
+    'validate',
     deps,
   );
 

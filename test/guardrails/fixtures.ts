@@ -17,7 +17,7 @@ import type {
 import type { Edge, GraphNode, NodeClassification, WorkflowGraph } from '../../src/types/graph.js';
 import type { NodeIdentity } from '../../src/types/identity.js';
 import { nodeIdentity } from '../../src/types/identity.js';
-import type { ValidationLayer, ValidationTarget } from '../../src/types/target.js';
+import type { ValidationTarget } from '../../src/types/target.js';
 import type {
   ChangeKind,
   NodeChangeSet,
@@ -309,7 +309,7 @@ export function partialTrustState(
       contentHash: options?.hash ?? DEFAULT_HASH,
       validatedBy: DEFAULT_RUN_ID,
       validatedAt: options?.validatedAt ?? DEFAULT_TIMESTAMP,
-      validationLayer: 'both',
+      validatedWith: 'static',
       fixtureHash: options?.fixtureHash ?? null,
     });
   }
@@ -427,7 +427,7 @@ export function passedSummary(targetNodes: string[]): DiagnosticSummary {
       nodes: targetNodes.map(nodeIdentity),
       automatic: true,
     },
-    evidenceBasis: 'both',
+    evidenceBasis: 'static',
     executedPath: targetNodes.map((name, idx) => ({
       name: nodeIdentity(name),
       executionIndex: idx,
@@ -504,7 +504,7 @@ export function failedSummary(
       nodes: failingPath.map(nodeIdentity),
       automatic: true,
     },
-    evidenceBasis: 'both',
+    evidenceBasis: 'static',
     executedPath: pathNodes,
     errors: [error],
     nodeAnnotations: [],
@@ -543,7 +543,7 @@ export function makeExpressionRef(
 interface EvaluationInputOverrides {
   target?: ValidationTarget;
   targetNodes?: Set<NodeIdentity>;
-  layer?: ValidationLayer;
+  tool?: 'validate' | 'test';
   force?: boolean;
   trustState?: TrustState;
   changeSet?: NodeChangeSet;
@@ -567,7 +567,7 @@ export function makeEvaluationInput(overrides: EvaluationInputOverrides = {}): E
   return {
     target: overrides.target ?? { kind: 'workflow' },
     targetNodes,
-    layer: overrides.layer ?? 'both',
+    tool: overrides.tool ?? 'validate',
     force: overrides.force ?? false,
     trustState: overrides.trustState ?? emptyTrustState(),
     changeSet: overrides.changeSet ?? noChanges(allNames),

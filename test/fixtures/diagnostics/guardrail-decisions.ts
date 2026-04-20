@@ -7,7 +7,7 @@
 
 import type { GuardrailDecision } from '../../../src/types/guardrail.js';
 import { nodeIdentity } from '../../../src/types/identity.js';
-import type { ValidationTarget, ValidationLayer } from '../../../src/types/target.js';
+import type { ValidationTarget } from '../../../src/types/target.js';
 
 const sharedEvidence = {
   changedNodes: [nodeIdentity('httpRequest')],
@@ -56,21 +56,6 @@ export const narrowDecision: GuardrailDecision = {
   },
   overridable: true,
   narrowedTarget,
-};
-
-const redirectedLayer: ValidationLayer = 'static';
-
-export const redirectDecision: GuardrailDecision = {
-  action: 'redirect',
-  explanation: 'No execution backend available — redirecting to static analysis only.',
-  evidence: {
-    changedNodes: [nodeIdentity('httpRequest')],
-    trustedNodes: [],
-    lastValidatedAt: null,
-    fixtureChanged: false,
-  },
-  overridable: true,
-  redirectedLayer,
 };
 
 export const refuseDecision: GuardrailDecision = {

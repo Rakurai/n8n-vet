@@ -24,7 +24,6 @@ import type {
 import type { WorkflowGraph } from '../types/graph.js';
 import type { GuardrailDecision } from '../types/guardrail.js';
 import type { NodeIdentity } from '../types/identity.js';
-import type { ValidationLayer } from '../types/target.js';
 import type { NodeChangeSet } from '../types/trust.js';
 import { selectPaths } from './path.js';
 import { resolveTarget } from './resolve.js';
@@ -98,7 +97,7 @@ export async function interpret(
   const evaluationInput: EvaluationInput = {
     target: { kind: 'slice', slice },
     targetNodes: new Set(resolvedTarget.nodes),
-    layer: request.layer,
+    tool: request.tool,
     force: request.force,
     trustState: activeTrust,
     changeSet: changeSet ?? { added: [], removed: [], modified: [], unchanged: [] },
@@ -111,7 +110,6 @@ export async function interpret(
   };
 
   const guardrailDecision = deps.evaluate(evaluationInput);
-  let effectiveLayer: ValidationLayer = request.layer;
   const guardrailDecisions: GuardrailDecision[] = [guardrailDecision];
 
   // Route on guardrail action
@@ -132,10 +130,6 @@ export async function interpret(
     }
   }
 
-  if (guardrailDecision.action === 'redirect' && !request.force) {
-    effectiveLayer = guardrailDecision.redirectedLayer;
-  }
-
   // ── Step 6: Run validation ──────────────────────────────────────
   const staticFindings: StaticFinding[] = [];
   let executionData: ExecutionData | null = null;
@@ -146,8 +140,8 @@ export async function interpret(
   };
   let executionId: string | null = null;
 
-  // Step 6a: Static analysis (reuse expressionRefs from step 5 for single-path)
-  if (effectiveLayer === 'static' || effectiveLayer === 'both') {
+  // Step 6a: Static analysis — validate tool only
+  if (request.tool === 'validate') {
     if (paths.length <= 1) {
       const dataLossFindings = deps.detectDataLoss(graph, expressionRefs, resolvedTarget.nodes);
       const schemaFindings = deps.checkSchemas(graph, expressionRefs);
@@ -165,7 +159,7 @@ export async function interpret(
     }
   }
 
-  // Step 6b: Execution (MCP is the sole execution backend)
+  // Step 6b: Execution — test tool only (MCP is the sole execution backend)
   const executionErrors: {
     type: string;
     message: string;
@@ -174,7 +168,7 @@ export async function interpret(
     classification: 'platform';
     context: Record<string, never>;
   }[] = [];
-  if (effectiveLayer === 'execution' || effectiveLayer === 'both') {
+  if (request.tool === 'test') {
     if (!n8nWorkflowId) {
       executionErrors.push({
         type: 'OrchestratorError',
@@ -288,7 +282,7 @@ export async function interpret(
       activeTrust,
       validatedNodes,
       graph,
-      effectiveLayer,
+      request.tool === 'test' ? 'execution' : 'static',
       runId,
       fixtureHash,
     );

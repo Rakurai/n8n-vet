@@ -179,9 +179,9 @@ describe('synthesize — execution-backed path (US2)', () => {
     };
   }
 
-  it('sets evidenceBasis to both when static findings and execution data present', () => {
+  it('sets evidenceBasis to execution when execution data present (even with static findings)', () => {
     const result = synthesize(makeExecInput());
-    expect(result.evidenceBasis).toBe('both');
+    expect(result.evidenceBasis).toBe('execution');
   });
 
   it('sets evidenceBasis to execution when static findings are empty', () => {
@@ -295,18 +295,17 @@ describe('synthesize — execution-backed path (US2)', () => {
 import {
   warnDecision,
   narrowDecision,
-  redirectDecision,
   refuseDecision,
   mixedDecisions,
 } from '../fixtures/diagnostics/guardrail-decisions.js';
 
 describe('synthesize — guardrail action reporting (US4)', () => {
   it('all guardrail decision types appear in guardrailActions', () => {
-    const allDecisions = [proceedDecision, warnDecision, narrowDecision, redirectDecision, refuseDecision];
+    const allDecisions = [proceedDecision, warnDecision, narrowDecision, refuseDecision];
     const result = synthesize(makeInput({ guardrailDecisions: allDecisions }));
     expect(result.guardrailActions).toEqual(allDecisions);
     const actions = result.guardrailActions.map((d) => d.action);
-    expect(actions).toEqual(['proceed', 'warn', 'narrow', 'redirect', 'refuse']);
+    expect(actions).toEqual(['proceed', 'warn', 'narrow', 'refuse']);
   });
 
   it('refuse sets status to skipped even when errors are present', () => {
@@ -413,8 +412,8 @@ describe('synthesize — full pipeline integration (T036)', () => {
     expect(result.schemaVersion).toBe(1);
     expect(result.status).toBe('fail');
 
-    // Evidence basis: both layers present
-    expect(result.evidenceBasis).toBe('both');
+    // Evidence basis: execution ran
+    expect(result.evidenceBasis).toBe('execution');
 
     // Errors: execution errors first, then static
     expect(result.errors.length).toBeGreaterThanOrEqual(2);

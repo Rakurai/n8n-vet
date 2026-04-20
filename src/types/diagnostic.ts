@@ -5,7 +5,7 @@
 
 import type { GuardrailDecision } from './guardrail.js';
 import type { NodeIdentity } from './identity.js';
-import type { ValidationLayer } from './target.js';
+import type { ValidationEvidence } from './target.js';
 
 /** The resolved validation target after automatic or agent-specified scope resolution. */
 export interface ResolvedTarget {
@@ -115,8 +115,8 @@ export interface DiagnosticSummary {
   status: 'pass' | 'fail' | 'error' | 'skipped';
   /** The resolved scope that was validated. */
   target: ResolvedTarget;
-  /** The validation layer(s) that produced this result. */
-  evidenceBasis: ValidationLayer;
+  /** The evidence type that produced this result. */
+  evidenceBasis: ValidationEvidence;
   /** The ordered sequence of nodes observed during execution, or null if no execution occurred. */
   executedPath: PathNode[] | null;
   errors: DiagnosticError[];

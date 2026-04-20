@@ -30,10 +30,9 @@ export type ValidationTarget =
   | { kind: 'path'; path: PathDefinition };
 
 /**
- * Which evidence layers to run during validation.
+ * Which evidence type backs a validation or test result.
  *
- * - `static`    — heuristic analysis only; no workflow execution
- * - `execution` — live execution only; skips static analysis
- * - `both`      — static analysis followed by targeted execution
+ * - `static`    — structural analysis only; no workflow execution
+ * - `execution` — live execution against n8n
  */
-export type ValidationLayer = 'static' | 'execution' | 'both';
+export type ValidationEvidence = 'static' | 'execution';

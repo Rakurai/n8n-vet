@@ -154,7 +154,7 @@ describe('interpret() — changed-target static-only pipeline', () => {
   const baseRequest: ValidationRequest = {
     workflowPath: '/test/workflow.ts',
     target: { kind: 'changed' },
-    layer: 'static',
+    tool: 'validate',
     force: false,
     pinData: null,
   };
@@ -184,7 +184,7 @@ describe('interpret() — changed-target static-only pipeline', () => {
 
     expect(deps.evaluate).toHaveBeenCalledTimes(1);
     const evalInput = vi.mocked(deps.evaluate).mock.calls[0]![0];
-    expect(evalInput.layer).toBe('static');
+    expect(evalInput.tool).toBe('validate');
     expect(evalInput.force).toBe(false);
   });
 
@@ -291,7 +291,7 @@ describe('interpret() — nodes-target pipeline (US2)', () => {
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'nodes', nodes: ['httpReq' as NodeIdentity, 'setNode' as NodeIdentity] },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     };
@@ -312,7 +312,7 @@ describe('interpret() — nodes-target pipeline (US2)', () => {
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'nodes', nodes: ['nonexistent' as NodeIdentity] },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     };
@@ -329,7 +329,7 @@ describe('interpret() — nodes-target pipeline (US2)', () => {
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'nodes', nodes: [] },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     };
@@ -364,7 +364,7 @@ describe('interpret() — workflow-target with guardrail narrowing (US3)', () =>
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'workflow' },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     };
@@ -398,7 +398,7 @@ describe('interpret() — workflow-target with guardrail narrowing (US3)', () =>
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'workflow' },
-      layer: 'static',
+      tool: 'validate',
       force: true,
       pinData: null,
     };
@@ -432,7 +432,7 @@ describe('interpret() — workflow-target with guardrail narrowing (US3)', () =>
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'workflow' },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     };
@@ -450,7 +450,7 @@ describe('interpret() — guardrail routing (US4 T012)', () => {
   const baseRequest: ValidationRequest = {
     workflowPath: '/test/workflow.ts',
     target: { kind: 'changed' },
-    layer: 'static',
+    tool: 'validate',
     force: false,
     pinData: null,
   };
@@ -472,23 +472,21 @@ describe('interpret() — guardrail routing (US4 T012)', () => {
     expect(deps.checkSchemas).not.toHaveBeenCalled();
   });
 
-  it('redirect: changes effectiveLayer to static, no execution', async () => {
+  it('refuse: test-refusal skips validation', async () => {
     const deps = createMockDeps({
       evaluate: vi.fn().mockReturnValue({
-        action: 'redirect',
-        explanation: 'Redirecting to static',
+        action: 'refuse',
+        explanation: 'All changes are structurally analyzable -- use validate instead.',
         evidence: { changedNodes: [], trustedNodes: [], lastValidatedAt: null, fixtureChanged: false },
         overridable: true,
-        redirectedLayer: 'static' as const,
       }),
     });
 
-    const request = { ...baseRequest, layer: 'both' as const };
+    const request = { ...baseRequest, tool: 'test' as const };
     const result = await interpret(request, deps);
 
-    expect(result.status).toBe('pass');
-    expect(deps.detectDataLoss).toHaveBeenCalled();
-    expect(deps.executeSmoke).not.toHaveBeenCalled();
+    expect(result.status).toBe('skipped');
+    expect(deps.detectDataLoss).not.toHaveBeenCalled();
     expect(deps.executeSmoke).not.toHaveBeenCalled();
   });
 
@@ -508,7 +506,7 @@ describe('interpret() — guardrail routing (US4 T012)', () => {
     expect(deps.detectDataLoss).toHaveBeenCalled();
   });
 
-  it('proceed: no changes to target or layer', async () => {
+  it('proceed: no changes to target or tool', async () => {
     const deps = createMockDeps();
 
     const result = await interpret(baseRequest, deps);
@@ -533,8 +531,8 @@ describe('interpret() — guardrail routing (US4 T012)', () => {
   });
 });
 
-describe('interpret() — execution-backed validation (US4 T014)', () => {
-  it('runs both static and execution for layer:both', async () => {
+describe('interpret() — execution-backed testing (tool: test)', () => {
+  it('runs execution for tool:test', async () => {
     const callTool = vi.fn().mockResolvedValue({
       execution: { id: 'exec-1', workflowId: 'wf-1', mode: 'cli', status: 'success', startedAt: '2026-01-01T00:00:00Z', stoppedAt: '2026-01-01T00:00:01Z' },
       data: { resultData: { runData: {}, error: null, lastNodeExecuted: null } },
@@ -550,70 +548,57 @@ describe('interpret() — execution-backed validation (US4 T014)', () => {
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'changed' },
-      layer: 'both',
+      tool: 'test',
       force: false,
       pinData: null,
       callTool,
+    };
+
+    const result = await interpret(request, deps);
+
+    expect(result.status).toBe('pass');
+    expect(deps.executeSmoke).toHaveBeenCalled();
+  });
+
+  it('tool:validate runs only static, no execution', async () => {
+    const deps = createMockDeps();
+
+    const request: ValidationRequest = {
+      workflowPath: '/test/workflow.ts',
+      target: { kind: 'changed' },
+      tool: 'validate',
+      force: false,
+      pinData: null,
     };
 
     const result = await interpret(request, deps);
 
     expect(result.status).toBe('pass');
     expect(deps.detectDataLoss).toHaveBeenCalled();
-    expect(deps.executeSmoke).toHaveBeenCalled();
+    expect(deps.executeSmoke).not.toHaveBeenCalled();
   });
 
-  it('runs execution only for layer:execution', async () => {
-    const callTool = vi.fn().mockResolvedValue({
-      execution: { id: 'exec-1', workflowId: 'wf-1', mode: 'cli', status: 'success', startedAt: '2026-01-01T00:00:00Z', stoppedAt: '2026-01-01T00:00:01Z' },
-      data: { resultData: { runData: {}, error: null, lastNodeExecuted: null } },
-    });
-    const deps = createMockDeps({
-      detectCapabilities: vi.fn().mockResolvedValue({
-        level: 'mcp',
-        mcpAvailable: true,
-        mcpTools: ['test_workflow'],
-      }),
-    });
-
-    const request: ValidationRequest = {
-      workflowPath: '/test/workflow.ts',
-      target: { kind: 'changed' },
-      layer: 'execution',
-      force: false,
-      pinData: null,
-      callTool,
-    };
-
-    const result = await interpret(request, deps);
-
-    expect(result.status).toBe('pass');
-    expect(deps.detectDataLoss).not.toHaveBeenCalled();
-    expect(deps.executeSmoke).toHaveBeenCalled();
-  });
-
-  it('redirect from both to static means no execution', async () => {
+  it('test-refusal: tool:test with refuse guardrail skips execution', async () => {
     const deps = createMockDeps({
       evaluate: vi.fn().mockReturnValue({
-        action: 'redirect',
-        explanation: 'Redirect to static',
+        action: 'refuse',
+        explanation: 'All changes are structurally analyzable -- use validate instead.',
         evidence: { changedNodes: [], trustedNodes: [], lastValidatedAt: null, fixtureChanged: false },
         overridable: true,
-        redirectedLayer: 'static' as const,
       }),
     });
 
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'changed' },
-      layer: 'both',
+      tool: 'test',
       force: false,
       pinData: null,
     };
 
     const result = await interpret(request, deps);
 
-    expect(result.status).toBe('pass');
+    expect(result.status).toBe('skipped');
     expect(deps.executeSmoke).not.toHaveBeenCalled();
   });
 
@@ -631,7 +616,7 @@ describe('interpret() — execution-backed validation (US4 T014)', () => {
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'changed' },
-      layer: 'execution',
+      tool: 'test',
       force: false,
       pinData: null,
       callTool,
@@ -648,7 +633,7 @@ describe('interpret() — trust persistence across runs (US5 T015)', () => {
   const baseRequest: ValidationRequest = {
     workflowPath: '/test/workflow.ts',
     target: { kind: 'changed' },
-    layer: 'static',
+    tool: 'validate',
     force: false,
     pinData: null,
   };
@@ -751,7 +736,7 @@ describe('interpret() — multi-path validation (US6 T020)', () => {
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'changed' },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     };
@@ -769,7 +754,7 @@ describe('interpret() — error conditions (T022)', () => {
   const baseRequest: ValidationRequest = {
     workflowPath: '/test/workflow.ts',
     target: { kind: 'changed' },
-    layer: 'static',
+    tool: 'validate',
     force: false,
     pinData: null,
   };
@@ -809,7 +794,7 @@ describe('interpret() — error conditions (T022)', () => {
 
     const request: ValidationRequest = {
       ...baseRequest,
-      layer: 'execution',
+      tool: 'test',
       callTool,
     };
 
@@ -859,7 +844,7 @@ describe('interpret() — MCP smoke test path', () => {
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'workflow' },
-      layer: 'execution',
+      tool: 'test',
       force: false,
       pinData: null,
       callTool,
@@ -889,7 +874,7 @@ describe('interpret() — n8nWorkflowId routing (US1)', () => {
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'changed' },
-      layer: 'execution',
+      tool: 'test',
       force: false,
       pinData: null,
       callTool,
@@ -905,7 +890,7 @@ describe('interpret() — n8nWorkflowId routing (US1)', () => {
     );
   });
 
-  it('missing metadata.id with execution layer returns error diagnostic with message containing "missing metadata.id"', async () => {
+  it('missing metadata.id with tool:test returns error diagnostic with message containing "missing metadata.id"', async () => {
     const callTool = vi.fn();
     const graphWithEmptyId = makeGraph(
       ['trigger', 'httpReq', 'setNode', 'end'],
@@ -919,7 +904,7 @@ describe('interpret() — n8nWorkflowId routing (US1)', () => {
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'changed' },
-      layer: 'execution',
+      tool: 'test',
       force: false,
       pinData: null,
       callTool,
@@ -931,7 +916,7 @@ describe('interpret() — n8nWorkflowId routing (US1)', () => {
     expect(result.errors.some((e) => e.message.includes('missing metadata.id'))).toBe(true);
   });
 
-  it('missing metadata.id with static-only layer proceeds without error', async () => {
+  it('missing metadata.id with tool:validate proceeds without error', async () => {
     const graphWithEmptyId = makeGraph(
       ['trigger', 'httpReq', 'setNode', 'end'],
       [['trigger', 'httpReq'], ['httpReq', 'setNode'], ['setNode', 'end']],
@@ -944,7 +929,7 @@ describe('interpret() — n8nWorkflowId routing (US1)', () => {
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'changed' },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     };
@@ -960,7 +945,7 @@ describe('interpret() — n8nWorkflowId routing (US1)', () => {
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'changed' },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     };
@@ -973,7 +958,7 @@ describe('interpret() — n8nWorkflowId routing (US1)', () => {
     expect(trustCall).toContain('workflow.ts');
   });
 
-  it('layer: both with missing metadata.id returns static findings AND an execution error', async () => {
+  it('tool:test with missing metadata.id returns error without running static analysis', async () => {
     const callTool = vi.fn();
     const graphWithEmptyId = makeGraph(
       ['trigger', 'httpReq', 'setNode', 'end'],
@@ -982,19 +967,12 @@ describe('interpret() — n8nWorkflowId routing (US1)', () => {
     );
     const deps = createMockDeps({
       buildGraph: vi.fn().mockReturnValue(graphWithEmptyId),
-      detectDataLoss: vi.fn().mockReturnValue([{
-        node: 'httpReq',
-        kind: 'data-loss',
-        message: 'Potential data loss',
-        severity: 'warning',
-        context: {},
-      }]),
     });
 
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'changed' },
-      layer: 'both',
+      tool: 'test',
       force: false,
       pinData: null,
       callTool,
@@ -1004,8 +982,6 @@ describe('interpret() — n8nWorkflowId routing (US1)', () => {
 
     // Should have execution error about missing metadata.id
     expect(result.errors.some((e) => e.message.includes('missing metadata.id'))).toBe(true);
-    // Static analysis should still have run
-    expect(deps.detectDataLoss).toHaveBeenCalled();
   });
 
   it('whitespace-only metadata.id is treated as missing', async () => {
@@ -1022,7 +998,7 @@ describe('interpret() — n8nWorkflowId routing (US1)', () => {
     const request: ValidationRequest = {
       workflowPath: '/test/workflow.ts',
       target: { kind: 'changed' },
-      layer: 'execution',
+      tool: 'test',
       force: false,
       pinData: null,
       callTool,

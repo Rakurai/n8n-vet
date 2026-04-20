@@ -14,7 +14,7 @@ function makeTrustState(workflowId: string): TrustState {
     contentHash: 'abc123',
     validatedBy: 'test-run-1',
     validatedAt: new Date().toISOString(),
-    validationLayer: 'static',
+    validatedWith: 'static',
     fixtureHash: null,
   };
   const nodes = new Map<NodeIdentity, NodeTrustRecord>([

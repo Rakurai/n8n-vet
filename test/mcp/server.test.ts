@@ -252,7 +252,7 @@ describe('MCP server — trust_status tool', () => {
           contentHash: realHash,
           validatedBy: 'test',
           validatedAt: '2026-01-01T00:00:00Z',
-          validationLayer: 'static',
+          validatedWith: 'static',
           fixtureHash: null,
         } as NodeTrustRecord],
       ]),

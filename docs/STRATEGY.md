@@ -101,9 +101,9 @@ This is consistent with the testing-pyramid style of test structuring and with c
 
 ---
 
-### 5. Execution-backed validation is deliberate
+### 5. Testing is a separate step
 
-Execution-backed validation is the expensive path. It is justified when runtime behavior matters:
+Execution-backed testing is a separate operation from validation. It is justified when runtime behavior matters:
 
 * opaque or shape-unknown nodes
 * runtime-only branch behavior
@@ -111,9 +111,9 @@ Execution-backed validation is the expensive path. It is justified when runtime 
 * LLM and agent outputs
 * actual execution failures that static analysis cannot prove or disprove
 
-**Strategic stance.** Execution-backed validation should be treated as a **compile+test step**, not as a cheap default loop. See `CONCEPTS.md` for the definition.
+**Strategic stance.** Execution-backed testing should be treated as a **compile+test step**, not as a cheap default loop. See `CONCEPTS.md` for the definition.
 
-**Implication.** The product should prefer bounded execution over whole-workflow execution, mocked or pinned execution over live external behavior where possible, and static pre-flight checks before paying execution cost.
+**Implication.** The product provides a separate `test` tool for execution. It should prefer bounded execution over whole-workflow execution, mocked or pinned execution over live external behavior where possible, and static pre-flight checks before paying execution cost.
 
 **v0.1.0 execution scoping.** Execution is scoped through pin data placement: placing pin data at trusted boundaries prevents those nodes from re-executing, effectively limiting execution to the unpinned (changed) region of the graph. The MCP `test_workflow` tool is the sole execution trigger; it initiates a full workflow run whose effective scope is controlled by which nodes carry pinned data.
 
@@ -177,7 +177,7 @@ Evidence the guardrails should consider:
 * whether the changed slice is exercised by the requested path
 * whether static analysis can answer the question without runtime cost
 
-**Implication.** The tool should be able to warn, narrow, redirect, or refuse. Refusal should be reserved for high-confidence low-value cases. Visible narrowing or redirection is preferred when possible.
+**Implication.** The tool should be able to warn, narrow, or refuse. Refusal should be reserved for high-confidence low-value cases (including test-refusal when execution is unnecessary). Visible narrowing is preferred when possible.
 
 ---
 
@@ -327,16 +327,16 @@ When a rerun is low-value, the product should explain why and redirect rather th
 
 ### Static-execution escalation
 
-Derived from the testing pyramid and cost-awareness principles. Defines when the product should escalate from static analysis to execution.
+Derived from the testing pyramid and cost-awareness principles. Defines when the development workflow should proceed from validation to testing.
 
-**Static-only is sufficient when:**
+**Static-only (`validate`) is sufficient when:**
 
 * all changed nodes are structurally analyzable
 * no changed node is opaque
 * no changed node is a shape-replacing risk with downstream expression dependence
 * no boundary or output contract changed in a way requiring runtime evidence
 
-**Escalate to execution when any of these hold:**
+**Testing (`test`) is warranted when any of these hold:**
 
 * changed opaque node (Code node, community node with no schema)
 * changed shape-replacing node with downstream shape sensitivity
@@ -344,16 +344,17 @@ Derived from the testing pyramid and cost-awareness principles. Defines when the
 * path ambiguity that static analysis cannot disambiguate
 * LLM/agent output validation requested
 
+When an agent calls `test` but none of these conditions hold, the test-refusal guardrail prevents unnecessary execution cost by recommending `validate` instead.
+
 ### Guardrail action order
 
 When a guardrail triggers, the product should prefer actions in this order:
 
-1. **Redirect** to a cheaper sufficient layer (e.g., static analysis instead of execution)
-2. **Narrow** to the smallest affected slice
-3. **Warn** when a broad request is still reasonable but carries cost
-4. **Refuse** only on high-confidence redundant or no-information requests
+1. **Narrow** to the smallest affected slice
+2. **Warn** when a broad request is still reasonable but carries cost
+3. **Refuse** on high-confidence redundant or no-information requests, or when `test` is called but all changes are structurally analyzable (test-refusal)
 
-Redirect is first because the largest savings often come from avoiding runtime cost entirely. Refusal is last because it should be rare.
+Narrowing is first because the largest savings often come from reducing scope. Refusal includes the test-refusal guardrail, which prevents unnecessary execution cost by recommending `validate` when no escalation triggers are present.
 
 ---
 

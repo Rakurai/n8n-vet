@@ -17,7 +17,7 @@ function makeRecord(hash = 'abc123'): NodeTrustRecord {
     contentHash: hash,
     validatedBy: 'run-001',
     validatedAt: '2026-04-18T00:00:00.000Z',
-    validationLayer: 'static',
+    validatedWith: 'static',
     fixtureHash: null,
   };
 }
@@ -179,5 +179,130 @@ describe('persistTrustState', () => {
     const loaded = loadTrustState('wf-001', nestedDir);
 
     expect(loaded.workflowId).toBe('wf-001');
+  });
+});
+
+describe('trust migration — old validationLayer field', () => {
+  it('reads old validationLayer field and maps to validatedWith', () => {
+    const oldStore = {
+      schemaVersion: 1,
+      workflows: {
+        'wf-001': {
+          workflowId: 'wf-001',
+          workflowHash: 'hash',
+          connectionsHash: 'conn-hash',
+          nodes: {
+            nodeA: {
+              contentHash: 'hash-a',
+              validatedBy: 'run-001',
+              validatedAt: '2026-04-18T00:00:00.000Z',
+              validationLayer: 'static',
+              fixtureHash: null,
+            },
+          },
+        },
+      },
+    };
+    mkdirSync(tempDir, { recursive: true });
+    writeFileSync(join(tempDir, 'trust-state.json'), JSON.stringify(oldStore));
+
+    const state = loadTrustState('wf-001', tempDir);
+
+    expect(state.nodes.get(ni('nodeA'))?.validatedWith).toBe('static');
+  });
+
+  it('maps old "both" value to "execution"', () => {
+    const oldStore = {
+      schemaVersion: 1,
+      workflows: {
+        'wf-001': {
+          workflowId: 'wf-001',
+          workflowHash: 'hash',
+          connectionsHash: 'conn-hash',
+          nodes: {
+            nodeA: {
+              contentHash: 'hash-a',
+              validatedBy: 'run-001',
+              validatedAt: '2026-04-18T00:00:00.000Z',
+              validationLayer: 'both',
+              fixtureHash: 'fix-123',
+            },
+          },
+        },
+      },
+    };
+    mkdirSync(tempDir, { recursive: true });
+    writeFileSync(join(tempDir, 'trust-state.json'), JSON.stringify(oldStore));
+
+    const state = loadTrustState('wf-001', tempDir);
+
+    expect(state.nodes.get(ni('nodeA'))?.validatedWith).toBe('execution');
+  });
+
+  it('writes new validatedWith field (not validationLayer)', () => {
+    const nodes = new Map<NodeIdentity, NodeTrustRecord>();
+    nodes.set(ni('nodeA'), makeRecord('hash-a'));
+
+    const state: TrustState = {
+      workflowId: 'wf-001',
+      nodes,
+      connectionsHash: 'conn-hash',
+    };
+
+    persistTrustState(state, 'wh', tempDir);
+
+    const raw = JSON.parse(readFileSync(join(tempDir, 'trust-state.json'), 'utf-8'));
+    const node = raw.workflows['wf-001'].nodes.nodeA;
+    expect(node.validatedWith).toBe('static');
+    expect(node.validationLayer).toBeUndefined();
+  });
+
+  it('round-trips old format through write+read', () => {
+    const oldStore = {
+      schemaVersion: 1,
+      workflows: {
+        'wf-001': {
+          workflowId: 'wf-001',
+          workflowHash: 'hash',
+          connectionsHash: 'conn-hash',
+          nodes: {
+            nodeA: {
+              contentHash: 'hash-a',
+              validatedBy: 'run-001',
+              validatedAt: '2026-04-18T00:00:00.000Z',
+              validationLayer: 'both',
+              fixtureHash: 'fix-123',
+            },
+            nodeB: {
+              contentHash: 'hash-b',
+              validatedBy: 'run-001',
+              validatedAt: '2026-04-18T00:00:00.000Z',
+              validationLayer: 'execution',
+              fixtureHash: null,
+            },
+          },
+        },
+      },
+    };
+    mkdirSync(tempDir, { recursive: true });
+    writeFileSync(join(tempDir, 'trust-state.json'), JSON.stringify(oldStore));
+
+    // Read old format
+    const state = loadTrustState('wf-001', tempDir);
+    expect(state.nodes.get(ni('nodeA'))?.validatedWith).toBe('execution');
+    expect(state.nodes.get(ni('nodeB'))?.validatedWith).toBe('execution');
+
+    // Write back in new format
+    persistTrustState(state, 'new-hash', tempDir);
+
+    // Read again — should use new field name
+    const reloaded = loadTrustState('wf-001', tempDir);
+    expect(reloaded.nodes.get(ni('nodeA'))?.validatedWith).toBe('execution');
+    expect(reloaded.nodes.get(ni('nodeB'))?.validatedWith).toBe('execution');
+
+    // Verify raw JSON uses validatedWith, not validationLayer
+    const raw = JSON.parse(readFileSync(join(tempDir, 'trust-state.json'), 'utf-8'));
+    expect(raw.workflows['wf-001'].nodes.nodeA.validatedWith).toBe('execution');
+    expect(raw.workflows['wf-001'].nodes.nodeA.validationLayer).toBeUndefined();
   });
 });

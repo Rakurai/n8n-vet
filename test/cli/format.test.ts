@@ -109,7 +109,7 @@ describe('formatTrustStatus', () => {
       trustedNodes: [{
         name: 'trigger',
         validatedAt: '2026-01-01T00:00:00Z',
-        validationLayer: 'static',
+        validatedWith: 'static',
         contentUnchanged: true,
       }],
       untrustedNodes: [{

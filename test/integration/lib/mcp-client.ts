@@ -1,6 +1,6 @@
 /**
  * MCP test client — spawns n8n-vet's MCP server as a child process,
- * connects via stdio transport, and provides typed methods for all 3 tools.
+ * connects via stdio transport, and provides typed methods for all 4 tools.
  */
 
 import { resolve } from 'node:path';
@@ -12,7 +12,13 @@ export interface McpTestClient {
     workflowPath: string;
     kind?: string;
     nodes?: string[];
-    layer?: string;
+    force?: boolean;
+  }): Promise<McpToolResponse>;
+
+  test(input: {
+    workflowPath: string;
+    kind?: string;
+    nodes?: string[];
     force?: boolean;
     pinData?: Record<string, Array<{ json: Record<string, unknown> }>>;
   }): Promise<McpToolResponse>;
@@ -25,7 +31,7 @@ export interface McpTestClient {
     workflowPath: string;
     kind?: string;
     nodes?: string[];
-    layer?: string;
+    tool?: string;
   }): Promise<McpToolResponse>;
 
   close(): Promise<void>;
@@ -39,7 +45,7 @@ export interface McpToolResponse {
 
 /**
  * Spawn the MCP server and connect a client to it.
- * Returns a typed client with validate/trustStatus/explain methods.
+ * Returns a typed client with validate/test/trustStatus/explain methods.
  */
 export async function createMcpTestClient(): Promise<McpTestClient> {
   const serverPath = resolve('dist/mcp/serve.js');
@@ -78,6 +84,7 @@ export async function createMcpTestClient(): Promise<McpTestClient> {
 
   return {
     validate: (input) => callTool('validate', input as unknown as Record<string, unknown>),
+    test: (input) => callTool('test', input as unknown as Record<string, unknown>),
     trustStatus: (input) => callTool('trust_status', input as unknown as Record<string, unknown>),
     explain: (input) => callTool('explain', input as unknown as Record<string, unknown>),
     close: async () => {

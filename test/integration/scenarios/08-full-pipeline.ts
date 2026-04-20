@@ -26,7 +26,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
     {
       workflowPath: dataLossPath,
       target: { kind: 'workflow' },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     },
@@ -67,7 +67,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
     {
       workflowPath: tempCopy,
       target: { kind: 'workflow' },
-      layer: 'static',
+      tool: 'validate',
       force: true,
       pinData: null,
     },
@@ -82,7 +82,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
     {
       workflowPath: tempCopy,
       target: { kind: 'workflow' },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     },
@@ -91,7 +91,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
 
   // Guardrail should refuse or redirect the unchanged rerun
   const hasGuardrail = rerunResult.guardrailActions.some(
-    d => d.action === 'refuse' || d.action === 'redirect' || d.action === 'narrow' || d.action === 'warn',
+    d => d.action === 'refuse' || d.action === 'narrow' || d.action === 'warn',
   );
   if (!hasGuardrail) {
     throw new Error(

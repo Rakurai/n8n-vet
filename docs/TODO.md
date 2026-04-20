@@ -43,6 +43,16 @@ Depends on confirming whole-workflow execution as the permanent model. Design in
 
 - **npm registry publishing** — Currently distributed as a git URL (sufficient for Claude plugin). Consider publishing to npm for standalone MCP server users.
 
+### Lifecycle Guardrail Opportunities (post-separation, if field-testing supports)
+
+These ideas came up during the validate/test separation design (phase 15). They reinforce the `validate → push → test` lifecycle, but we haven't encountered the failure modes yet. Add if real-world agent behavior demonstrates the need.
+
+- **Test-before-validate refusal** — When `test` is called and changed nodes have no static trust record (never validated or trust is stale), refuse: "Changed nodes have not been validated — run validate first." Hard lifecycle enforcement, analogous to a compiler refusing to run tests on uncompiled code. Override with `force: true`.
+
+- **Runtime-sensitive hint after validate** — When `validate` passes but escalation triggers fire (opaque nodes changed, LLM nodes, sub-workflow calls), include an advisory in the diagnostic summary: "Static validation passed. Runtime-sensitive changes detected — test after push." Nudge, not enforcement.
+
+- **Explicit `nextStep` in diagnostic output** — A single-sentence field in every `DiagnosticSummary` that names the next action: "Push with n8nac, then test" / "Fix errors, then validate again" / "Done — validated and tested." Cheap guidance that reinforces lifecycle in every response.
+
 ---
 
 ## Maybe Blocked

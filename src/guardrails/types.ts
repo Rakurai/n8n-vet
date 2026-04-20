@@ -9,7 +9,7 @@ import type { ExpressionReference } from '../static-analysis/types.js';
 import type { DiagnosticSummary, ErrorClassification } from '../types/diagnostic.js';
 import type { WorkflowGraph } from '../types/graph.js';
 import type { NodeIdentity } from '../types/identity.js';
-import type { ValidationLayer, ValidationTarget } from '../types/target.js';
+import type { ValidationTarget } from '../types/target.js';
 import type { NodeChangeSet, TrustState } from '../types/trust.js';
 
 // ── Threshold constants ────────────────────────────────────────────
@@ -40,8 +40,8 @@ export interface EvaluationInput {
   target: ValidationTarget;
   /** Concrete node set derived from the resolved target. */
   targetNodes: Set<NodeIdentity>;
-  /** Requested evidence layer. */
-  layer: ValidationLayer;
+  /** Which tool is being invoked: 'validate' (static) or 'test' (execution). */
+  tool: 'validate' | 'test';
   /** When true, bypass all guardrails. */
   force: boolean;
   /** Current per-workflow trust state. */

@@ -42,7 +42,7 @@ export type { WorkflowGraph, GraphNode, Edge, NodeClassification } from './types
 
 export type { SliceDefinition, PathDefinition, PathEdge } from './types/slice.js';
 
-export type { AgentTarget, ValidationTarget, ValidationLayer } from './types/target.js';
+export type { AgentTarget, ValidationTarget, ValidationEvidence } from './types/target.js';
 
 export type {
   TrustState,
@@ -139,5 +139,6 @@ export type {
   TrustedNodeInfo,
   UntrustedNodeInfo,
   GuardrailExplanation,
+  TestPreconditions,
   TargetResolutionInfo,
 } from './types/surface.js';

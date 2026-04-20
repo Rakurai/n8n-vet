@@ -34,13 +34,34 @@ export interface PersistedWorkflowTrust {
 
 // -- Zod schemas for persistence boundary validation --
 
-const nodeTrustRecordSchema = z.object({
-  contentHash: z.string(),
-  validatedBy: z.string(),
-  validatedAt: z.string(),
-  validationLayer: z.enum(['static', 'execution', 'both']),
-  fixtureHash: z.string().nullable(),
-});
+/**
+ * Backwards-compatible schema for NodeTrustRecord.
+ *
+ * Old trust files use `validationLayer` (possibly with value `'both'`).
+ * New trust files use `validatedWith` (`'static' | 'execution'` only).
+ * We accept either field name on read, map `'both'` → `'execution'`,
+ * and always output `validatedWith`.
+ */
+const nodeTrustRecordSchema = z
+  .object({
+    contentHash: z.string(),
+    validatedBy: z.string(),
+    validatedAt: z.string(),
+    validatedWith: z.enum(['static', 'execution']).optional(),
+    validationLayer: z.enum(['static', 'execution', 'both']).optional(),
+    fixtureHash: z.string().nullable(),
+  })
+  .transform((rec) => {
+    const raw = rec.validatedWith ?? rec.validationLayer ?? 'static';
+    const validatedWith = raw === 'both' ? 'execution' : raw;
+    return {
+      contentHash: rec.contentHash,
+      validatedBy: rec.validatedBy,
+      validatedAt: rec.validatedAt,
+      validatedWith: validatedWith as 'static' | 'execution',
+      fixtureHash: rec.fixtureHash,
+    };
+  });
 
 const persistedWorkflowTrustSchema = z.object({
   workflowId: z.string(),

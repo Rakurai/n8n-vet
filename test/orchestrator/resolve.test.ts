@@ -203,14 +203,14 @@ describe('resolveTarget', () => {
         contentHash: 'hash-a',
         validatedBy: 'run-1',
         validatedAt: '2026-01-01',
-        validationLayer: 'static',
+        validatedWith: 'static',
         fixtureHash: null,
       });
       trustState.nodes.set('B' as NodeIdentity, {
         contentHash: 'hash-b',
         validatedBy: 'run-1',
         validatedAt: '2026-01-01',
-        validationLayer: 'static',
+        validatedWith: 'static',
         fixtureHash: null,
       });
 
@@ -354,7 +354,7 @@ describe('resolveTarget', () => {
         contentHash: hashC,
         validatedBy: 'run-1',
         validatedAt: '2026-01-01',
-        validationLayer: 'static',
+        validatedWith: 'static',
         fixtureHash: null,
       });
 

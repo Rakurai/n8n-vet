@@ -1,12 +1,12 @@
 /**
  * Scenario 02: Execution happy path via n8n MCP
  *
- * Validates happy-path.ts with layer 'both' and a real callTool connected
+ * Tests happy-path.ts with tool 'test' and a real callTool connected
  * to n8n's native MCP server. The workflow executes successfully via
- * test_workflow, producing execution data alongside static analysis.
+ * test_workflow, producing execution data.
  *
  * When N8N_MCP_TOKEN is not configured, falls back to verifying graceful
- * degradation (execution skipped, static-only results).
+ * degradation (execution skipped).
  */
 
 import { resolve, join } from 'node:path';
@@ -25,7 +25,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
     {
       workflowPath: happyPath,
       target: { kind: 'workflow' },
-      layer: 'both',
+      tool: 'test',
       force: true,
       pinData: null,
       callTool: ctx.callTool ?? undefined,

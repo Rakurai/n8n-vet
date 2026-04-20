@@ -137,18 +137,18 @@ Validation is initiated by the agent calling the tool. The product does not auto
 
 The agent specifies a bounded validation target. The tool performs validation against that target and returns a structured diagnostic summary.
 
-### 8.0.2 Validation layers
+### 8.0.2 Validation and testing
 
-The product uses two validation layers with different cost profiles:
+The product provides two separate operations with different cost profiles, exposed as separate tools:
 
-* **Static analysis (cheap/local)**: structural inspection, reference tracing, and boundary checking performed against local workflow artifacts. Does not require a running n8n instance. This is the preferred default layer.
-* **Execution-backed validation (expensive/runtime)**: mocked or bounded execution against an n8n instance, followed by inspection of execution results. Used when runtime evidence is needed that static analysis cannot provide.
+* **Validation (static analysis — `validate` tool)**: structural inspection, reference tracing, and boundary checking performed against local workflow artifacts. Does not require a running n8n instance. This is the default operation for the development loop.
+* **Testing (execution-backed — `test` tool)**: mocked or bounded execution against an n8n instance, followed by inspection of execution results. Used when runtime evidence is needed that static analysis cannot provide. Requires the workflow to be deployed.
 
-A validation run may use either layer or both. The diagnostic result must indicate what kind of evidence was used, so the agent and supervising human can understand the basis for the reported outcome.
+Each operation produces a single evidence type (`static` or `execution`). The diagnostic result indicates which evidence type was used, so the agent and supervising human can understand the basis for the reported outcome.
 
 ### 8.0.3 Guardrail behavior
 
-When the product determines that a requested validation run is likely low-value, redundant, or wastefully broad, it may **warn, narrow, redirect, or refuse** the request depending on the available evidence and confidence level.
+When the product determines that a requested validation or test run is likely low-value, redundant, or wastefully broad, it may **warn, narrow, or refuse** the request depending on the available evidence and confidence level. When `test` is called but all changes are structurally analyzable, the product refuses and recommends using `validate` instead (test-refusal).
 
 When it does so, it must explain the decision in the structured result. The agent must always be able to understand what action the tool took and why.
 

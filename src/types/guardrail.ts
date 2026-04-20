@@ -3,7 +3,7 @@
  */
 
 import type { NodeIdentity } from './identity.js';
-import type { ValidationLayer, ValidationTarget } from './target.js';
+import type { ValidationTarget } from './target.js';
 
 /** Base fields shared by all guardrail decisions. */
 export interface GuardrailDecisionBase {
@@ -25,7 +25,6 @@ export type GuardrailDecision =
   | (GuardrailDecisionBase & { action: 'proceed' })
   | (GuardrailDecisionBase & { action: 'warn' })
   | (GuardrailDecisionBase & { action: 'narrow'; narrowedTarget: ValidationTarget })
-  | (GuardrailDecisionBase & { action: 'redirect'; redirectedLayer: ValidationLayer })
   | (GuardrailDecisionBase & { action: 'refuse' });
 
 /** Derived union of all valid guardrail action discriminants. */

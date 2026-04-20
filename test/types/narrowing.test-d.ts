@@ -9,7 +9,7 @@
 import { expectTypeOf, test } from 'vitest';
 import type { GuardrailDecision, GuardrailAction } from '../../src/types/guardrail.js';
 import type { DiagnosticError, ErrorClassification } from '../../src/types/diagnostic.js';
-import type { ValidationTarget, AgentTarget, ValidationLayer } from '../../src/types/target.js';
+import type { ValidationTarget, AgentTarget } from '../../src/types/target.js';
 import type { SliceDefinition, PathDefinition } from '../../src/types/slice.js';
 import type { NodeIdentity } from '../../src/types/identity.js';
 
@@ -34,13 +34,6 @@ test('GuardrailDecision narrows on action: narrow — narrowedTarget is present'
   const decision = {} as GuardrailDecision;
   if (decision.action === 'narrow') {
     expectTypeOf(decision.narrowedTarget).toEqualTypeOf<ValidationTarget>();
-  }
-});
-
-test('GuardrailDecision narrows on action: redirect — redirectedLayer is present', () => {
-  const decision = {} as GuardrailDecision;
-  if (decision.action === 'redirect') {
-    expectTypeOf(decision.redirectedLayer).toEqualTypeOf<ValidationLayer>();
   }
 });
 
@@ -172,7 +165,7 @@ test('AgentTarget narrows on kind: workflow', () => {
 // --- Derived types ---
 
 test('GuardrailAction is the union of action literals', () => {
-  expectTypeOf<GuardrailAction>().toEqualTypeOf<'proceed' | 'warn' | 'narrow' | 'redirect' | 'refuse'>();
+  expectTypeOf<GuardrailAction>().toEqualTypeOf<'proceed' | 'warn' | 'narrow' | 'refuse'>();
 });
 
 test('ErrorClassification is the union of classification literals', () => {

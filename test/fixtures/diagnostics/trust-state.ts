@@ -7,7 +7,7 @@
  */
 
 import type { TrustState, NodeTrustRecord } from '../../../src/types/trust.js';
-import type { ValidationLayer } from '../../../src/types/target.js';
+import type { ValidationEvidence } from '../../../src/types/target.js';
 import { nodeIdentity } from '../../../src/types/identity.js';
 
 const trigger = nodeIdentity('trigger');
@@ -19,10 +19,10 @@ function record(
   contentHash: string,
   validatedBy: string,
   validatedAt: string,
-  validationLayer: ValidationLayer,
+  validatedWith: ValidationEvidence,
   fixtureHash: string | null,
 ): NodeTrustRecord {
-  return { contentHash, validatedBy, validatedAt, validationLayer, fixtureHash };
+  return { contentHash, validatedBy, validatedAt, validatedWith, fixtureHash };
 }
 
 /** Trust state with no node records — clean slate. */
@@ -47,9 +47,9 @@ export const fullTrustState: TrustState = {
   workflowId: 'wf-test-001',
   nodes: new Map([
     [trigger, record('hash-trigger-a1', 'run-002', '2026-04-17T14:00:00Z', 'static', null)],
-    [httpRequest, record('hash-http-c3', 'run-002', '2026-04-17T14:01:00Z', 'both', 'fix-http-ee11')],
+    [httpRequest, record('hash-http-c3', 'run-002', '2026-04-17T14:01:00Z', 'execution', 'fix-http-ee11')],
     [setFields, record('hash-setFields-b2', 'run-002', '2026-04-17T14:02:00Z', 'static', null)],
-    [codeNode, record('hash-code-d4', 'run-002', '2026-04-17T14:03:00Z', 'both', 'fix-code-ff22')],
+    [codeNode, record('hash-code-d4', 'run-002', '2026-04-17T14:03:00Z', 'execution', 'fix-code-ff22')],
   ]),
   connectionsHash: 'conn-full-ghi789',
 };

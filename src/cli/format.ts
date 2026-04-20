@@ -103,7 +103,7 @@ export function formatTrustStatus(report: TrustStatusReport): string {
     for (const n of report.trustedNodes) {
       const unchanged = n.contentUnchanged ? '' : ` ${YELLOW}(content changed)${RESET}`;
       lines.push(
-        `  ${GREEN}✓${RESET} ${n.name} — ${n.validationLayer} at ${n.validatedAt}${unchanged}`,
+        `  ${GREEN}✓${RESET} ${n.name} — ${n.validatedWith} at ${n.validatedAt}${unchanged}`,
       );
     }
   }

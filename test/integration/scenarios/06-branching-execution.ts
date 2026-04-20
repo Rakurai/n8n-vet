@@ -2,10 +2,8 @@
  * Scenario 06: Branching workflow with execution path validation
  *
  * Uses branching-coverage.ts (Trigger → If → TruePath / FalsePath).
- * Validates with layer 'both' via MCP and asserts the executed path
+ * Tests with tool 'test' via MCP and asserts the executed path
  * contains the correct node sequence including branch selection.
- *
- * Also tests multi-path static analysis: both branches should be analyzed.
  *
  * When N8N_MCP_TOKEN is not configured, falls back to static-only.
  */
@@ -25,7 +23,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
     {
       workflowPath: branchingPath,
       target: { kind: 'workflow' },
-      layer: 'both',
+      tool: 'test',
       force: true,
       pinData: null,
       callTool: ctx.callTool ?? undefined,

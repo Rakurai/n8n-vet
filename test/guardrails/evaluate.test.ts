@@ -44,6 +44,89 @@ describe('evaluate pipeline', () => {
     });
   });
 
+  describe('Step 3: test-refusal', () => {
+    it('refuses when tool=test and no escalation triggers fire', () => {
+      const graph = linearGraph();
+      const allNames = [...graph.nodes.keys()];
+      // Only change shape-preserving/augmenting nodes — no escalation triggers
+      const input = makeEvaluationInput({
+        graph,
+        targetNodes: nodeSet('trigger', 'set'),
+        changeSet: narrowChanges(
+          [{ node: 'set', changes: ['parameter'] }],
+          allNames.filter((n) => n !== 'set'),
+        ),
+        currentHashes: uniformHashes(allNames),
+        trustState: emptyTrustState(),
+        tool: 'test',
+      });
+      const decision = evaluate(input);
+
+      expect(decision.action).toBe('refuse');
+      expect(decision.explanation).toMatch(/use validate instead/i);
+      expect(decision.overridable).toBe(true);
+    });
+
+    it('does not refuse when tool=validate', () => {
+      const graph = linearGraph();
+      const allNames = [...graph.nodes.keys()];
+      const input = makeEvaluationInput({
+        graph,
+        targetNodes: nodeSet('trigger', 'set'),
+        changeSet: narrowChanges(
+          [{ node: 'set', changes: ['parameter'] }],
+          allNames.filter((n) => n !== 'set'),
+        ),
+        currentHashes: uniformHashes(allNames),
+        trustState: emptyTrustState(),
+        tool: 'validate',
+      });
+      const decision = evaluate(input);
+
+      expect(decision.action).not.toBe('refuse');
+    });
+
+    it('proceeds when tool=test and an opaque node triggers escalation', () => {
+      const graph = linearGraph();
+      const allNames = [...graph.nodes.keys()];
+      // 'code' is shape-opaque — triggers escalation
+      const input = makeEvaluationInput({
+        graph,
+        targetNodes: nodeSet(...allNames),
+        changeSet: narrowChanges(
+          [{ node: 'code', changes: ['parameter'] }],
+          allNames.filter((n) => n !== 'code'),
+        ),
+        currentHashes: uniformHashes(allNames),
+        trustState: emptyTrustState(),
+        tool: 'test',
+      });
+      const decision = evaluate(input);
+
+      expect(decision.action).not.toBe('refuse');
+    });
+
+    it('force overrides test-refusal', () => {
+      const graph = linearGraph();
+      const allNames = [...graph.nodes.keys()];
+      const input = makeEvaluationInput({
+        graph,
+        targetNodes: nodeSet('trigger', 'set'),
+        changeSet: narrowChanges(
+          [{ node: 'set', changes: ['parameter'] }],
+          allNames.filter((n) => n !== 'set'),
+        ),
+        currentHashes: uniformHashes(allNames),
+        trustState: emptyTrustState(),
+        tool: 'test',
+        force: true,
+      });
+      const decision = evaluate(input);
+
+      expect(decision.action).toBe('proceed');
+    });
+  });
+
   describe('Step 7: identical rerun', () => {
     it('returns refuse with overridable=true when all trusted + no changes + matching fixture', () => {
       // Use branchingGraph (10 nodes) with 6-node target (60%) to avoid broad-target warn
@@ -57,7 +140,7 @@ describe('evaluate pipeline', () => {
         currentHashes: uniformHashes(allNames),
         trustState: fullTrustState(allNames, { fixtureHash: 'fixture-001' }),
         fixtureHash: 'fixture-001',
-        layer: 'static',
+        tool: 'validate',
       });
       const decision = evaluate(input);
 
@@ -78,7 +161,7 @@ describe('evaluate pipeline', () => {
         // http has a different hash from trust record
         currentHashes: uniformHashes(allNames, 'different-hash'),
         trustState: fullTrustState(allNames),
-        layer: 'static',
+        tool: 'validate',
       });
       const decision = evaluate(input);
 
@@ -95,7 +178,7 @@ describe('evaluate pipeline', () => {
         currentHashes: uniformHashes(allNames),
         trustState: fullTrustState(allNames, { fixtureHash: 'fixture-old' }),
         fixtureHash: 'fixture-new',
-        layer: 'static',
+        tool: 'validate',
       });
       const decision = evaluate(input);
 
@@ -120,7 +203,7 @@ describe('evaluate pipeline', () => {
         currentHashes: uniformHashes(allNames),
         trustState: emptyTrustState(),
         priorSummary: failedSummary([targetNames[0], targetNames[1], targetNames[2]], 'expression'),
-        layer: 'static',
+        tool: 'validate',
       });
       const decision = evaluate(input);
 
@@ -144,7 +227,7 @@ describe('evaluate pipeline', () => {
         currentHashes: uniformHashes(allNames),
         trustState: emptyTrustState(),
         priorSummary: summary,
-        layer: 'static',
+        tool: 'validate',
       });
       const decision = evaluate(input);
 
@@ -166,7 +249,7 @@ describe('evaluate pipeline', () => {
         currentHashes: uniformHashes(allNames),
         trustState: emptyTrustState(),
         priorSummary: failedSummary([targetNames[0], targetNames[1], targetNames[2]], 'expression'),
-        layer: 'static',
+        tool: 'validate',
       });
       const decision = evaluate(input);
 
@@ -190,7 +273,7 @@ describe('evaluate pipeline', () => {
           [targetNames[0], targetNames[1], targetNames[2]],
           'external-service',
         ),
-        layer: 'static',
+        tool: 'validate',
       });
       const decision = evaluate(input);
 
@@ -211,7 +294,7 @@ describe('evaluate pipeline', () => {
         currentHashes: uniformHashes(allNames),
         trustState: emptyTrustState(),
         priorSummary: failedSummary([targetNames[0], targetNames[1], targetNames[2]], 'platform'),
-        layer: 'static',
+        tool: 'validate',
       });
       const decision = evaluate(input);
 
@@ -232,7 +315,7 @@ describe('evaluate pipeline', () => {
         currentHashes: uniformHashes(allNames),
         trustState: emptyTrustState(),
         priorSummary: null,
-        layer: 'static',
+        tool: 'validate',
       });
       const decision = evaluate(input);
 
@@ -253,7 +336,7 @@ describe('evaluate pipeline', () => {
         changeSet: noChanges(targetNames),
         currentHashes: uniformHashes(allNames),
         trustState: partialTrustState([allNames[0]]),
-        layer: 'static',
+        tool: 'validate',
       });
       const decision = evaluate(input);
 
@@ -272,7 +355,7 @@ describe('evaluate pipeline', () => {
         changeSet: noChanges(targetNames),
         currentHashes: uniformHashes(allNames),
         trustState: partialTrustState([allNames[0]]),
-        layer: 'static',
+        tool: 'validate',
       });
       const decision = evaluate(input);
 
@@ -290,7 +373,7 @@ describe('evaluate pipeline', () => {
         changeSet: noChanges(targetNames),
         currentHashes: uniformHashes(allNames),
         trustState: partialTrustState([allNames[0]]),
-        layer: 'static',
+        tool: 'validate',
       });
       const decision = evaluate(input);
 
@@ -306,7 +389,7 @@ describe('evaluate pipeline', () => {
         changeSet: noChanges(allNames),
         currentHashes: uniformHashes(allNames),
         trustState: emptyTrustState(),
-        layer: 'static',
+        tool: 'validate',
       });
       const decision = evaluate(input);
 
@@ -327,7 +410,7 @@ describe('evaluate pipeline', () => {
         changeSet: noChanges(targetNames),
         currentHashes: uniformHashes(allNames),
         trustState: emptyTrustState(),
-        layer: 'static',
+        tool: 'validate',
       });
       const decision = evaluate(input);
 
@@ -367,19 +450,28 @@ describe('full pipeline integration — deterministic evaluation order', () => {
     expect(decision.overridable).toBe(false);
   });
 
-  it('Step 3 wins over Steps 4-8: redirect fires before narrowing and refuse', () => {
+  it('Step 3 wins over Steps 4-8: test-refusal fires when tool=test and no escalation triggers', () => {
     const graph = branchingGraph();
     const allNames = [...graph.nodes.keys()];
+    // All nodes are shape-preserving/augmenting — no escalation triggers
+    const targetNames = allNames.filter(
+      (n) => !['subWorkflow', 'enrich'].includes(n),
+    );
     const input = makeEvaluationInput({
       graph,
-      targetNodes: nodeSet(...allNames),
-      changeSet: noChanges(allNames),
+      targetNodes: nodeSet(...targetNames),
+      changeSet: narrowChanges(
+        [{ node: 'validate', changes: ['parameter'] }],
+        targetNames.filter((n) => n !== 'validate'),
+      ),
       currentHashes: uniformHashes(allNames),
-      trustState: fullTrustState(allNames, { fixtureHash: 'fixture-x' }),
-      fixtureHash: 'fixture-x',
-      layer: 'both', // would trigger redirect since all changes are structurally analyzable
+      trustState: emptyTrustState(),
+      tool: 'test',
     });
-    expect(evaluate(input).action).toBe('redirect');
+    const decision = evaluate(input);
+    expect(decision.action).toBe('refuse');
+    expect(decision.explanation).toMatch(/use validate instead/i);
+    expect(decision.overridable).toBe(true);
   });
 
   it('Step 4 wins over Steps 5-8: narrow fires before DeFlaker and warnings', () => {
@@ -397,7 +489,7 @@ describe('full pipeline integration — deterministic evaluation order', () => {
       ),
       currentHashes: uniformHashes(allNames),
       trustState: partialTrustState(trustedNames),
-      layer: 'static',
+      tool: 'validate',
     });
     expect(evaluate(input).action).toBe('narrow');
   });
@@ -417,7 +509,7 @@ describe('full pipeline integration — deterministic evaluation order', () => {
       trustState: partialTrustState(trustedNames),
       // Prior failure that would trigger DeFlaker if reached
       priorSummary: failedSummary(['trigger', 'a', 'b'], 'expression'),
-      layer: 'static',
+      tool: 'validate',
     });
     expect(evaluate(input).action).toBe('narrow');
   });
@@ -438,7 +530,7 @@ describe('full pipeline integration — deterministic evaluation order', () => {
       currentHashes: uniformHashes(allNames),
       trustState: emptyTrustState(),
       priorSummary: failedSummary([targetNames[0], targetNames[1]], 'expression'),
-      layer: 'static',
+      tool: 'validate',
     });
     expect(evaluate(input).action).toBe('warn');
   });
@@ -454,7 +546,7 @@ describe('full pipeline integration — deterministic evaluation order', () => {
       currentHashes: uniformHashes(allNames),
       trustState: partialTrustState([allNames[0]]),
       priorSummary: null,
-      layer: 'static',
+      tool: 'validate',
     });
     expect(evaluate(input).action).toBe('warn');
   });
@@ -470,7 +562,7 @@ describe('full pipeline integration — deterministic evaluation order', () => {
       currentHashes: uniformHashes(allNames),
       trustState: emptyTrustState(),
       priorSummary: null,
-      layer: 'static',
+      tool: 'validate',
     });
     const decision = evaluate(input);
     expect(decision.action).toBe('proceed');

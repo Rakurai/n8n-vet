@@ -24,7 +24,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
     {
       workflowPath: multiNodePath,
       target: { kind: 'nodes', nodes: ['B', 'C'] },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     },

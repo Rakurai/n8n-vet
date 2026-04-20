@@ -32,7 +32,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
     {
       workflowPath: tempCopy,
       target: { kind: 'workflow' },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     },
@@ -71,7 +71,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
     {
       workflowPath: tempCopy,
       target: { kind: 'changed' },
-      layer: 'static',
+      tool: 'validate',
       force: false,
       pinData: null,
     },

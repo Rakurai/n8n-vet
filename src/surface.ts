@@ -17,7 +17,7 @@ import type {
   TrustedNodeInfo,
   UntrustedNodeInfo,
 } from './types/surface.js';
-import type { AgentTarget, ValidationLayer } from './types/target.js';
+import type { AgentTarget } from './types/target.js';
 
 // ── Trust status composition ─────────────────────────────────────
 
@@ -50,7 +50,7 @@ export async function buildTrustStatusReport(
       trustedNodes.push({
         name,
         validatedAt: record.validatedAt,
-        validationLayer: record.validationLayer,
+        validatedWith: record.validatedWith,
         contentUnchanged: true,
       });
     } else {
@@ -76,7 +76,7 @@ export async function buildTrustStatusReport(
 export async function buildGuardrailExplanation(
   workflowPath: string,
   target: AgentTarget,
-  layer: ValidationLayer,
+  tool: 'validate' | 'test',
   deps: OrchestratorDeps,
 ): Promise<GuardrailExplanation> {
   const ast = await deps.parseWorkflowFile(workflowPath);
@@ -124,7 +124,7 @@ export async function buildGuardrailExplanation(
   const evaluationInput: EvaluationInput = {
     target,
     targetNodes,
-    layer,
+    tool,
     force: false,
     trustState,
     changeSet,
@@ -139,7 +139,7 @@ export async function buildGuardrailExplanation(
   const guardrailDecision = deps.evaluate(evaluationInput);
   const capabilities = await deps.detectCapabilities();
 
-  return {
+  const explanation: GuardrailExplanation = {
     guardrailDecision,
     targetResolution: {
       resolvedNodes: resolvedNodeNames,
@@ -151,4 +151,14 @@ export async function buildGuardrailExplanation(
       mcpTools: capabilities.mcpAvailable,
     },
   };
+
+  if (tool === 'test') {
+    const metadataId = (graph.ast.metadata.id ?? '').trim();
+    explanation.preconditions = {
+      mcpAvailable: capabilities.mcpAvailable,
+      metadataIdPresent: metadataId.length > 0,
+    };
+  }
+
+  return explanation;
 }

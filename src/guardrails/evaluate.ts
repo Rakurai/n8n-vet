@@ -8,7 +8,7 @@
  * Evaluation order (STRATEGY.md guardrail action order):
  *   1. Force bypass
  *   2. Empty target → refuse (precondition)
- *   3. Redirect execution → static
+ *   3. Test-refusal: tool='test' with no escalation triggers → refuse
  *   4. Narrow broad scope
  *   5. DeFlaker warn
  *   6. Broad-target warn
@@ -53,17 +53,15 @@ export function evaluate(input: EvaluationInput): GuardrailDecision {
     };
   }
 
-  // Step 3: Redirect execution → static
-  if (input.layer !== 'static') {
+  // Step 3: Test-refusal — when tool='test' and no escalation triggers fire, refuse
+  if (input.tool === 'test') {
     const escalation = assessEscalationTriggers(input);
     if (!escalation.triggered) {
       return {
-        action: 'redirect',
-        explanation:
-          'All changes are structurally analyzable — redirecting to static-only validation.',
+        action: 'refuse',
+        explanation: 'All changes are structurally analyzable -- use validate instead.',
         evidence,
         overridable: true,
-        redirectedLayer: 'static',
       };
     }
   }
