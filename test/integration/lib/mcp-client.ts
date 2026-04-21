@@ -6,6 +6,7 @@
 import { resolve } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { VERSION } from '../../../src/version.js';
 
 export interface McpTestClient {
   validate(input: {
@@ -55,7 +56,7 @@ export async function createMcpTestClient(): Promise<McpTestClient> {
     args: [serverPath],
   });
 
-  const client = new Client({ name: 'n8n-proctor-test', version: '0.1.0' });
+  const client = new Client({ name: 'n8n-proctor-test', version: VERSION });
   await client.connect(transport);
 
   async function callTool(name: string, args: Record<string, unknown>): Promise<McpToolResponse> {

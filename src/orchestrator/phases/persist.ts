@@ -36,7 +36,18 @@ export async function persistResults(
   ctx: PersistContext,
   deps: Pick<OrchestratorDeps, 'trust' | 'snapshots'>,
 ): Promise<void> {
-  const { summary, activeTrust, graph, workflowId, tool, runId, fixtureHash, paths, resolvedTarget, usedPinData } = ctx;
+  const {
+    summary,
+    activeTrust,
+    graph,
+    workflowId,
+    tool,
+    runId,
+    fixtureHash,
+    paths,
+    resolvedTarget,
+    usedPinData,
+  } = ctx;
   if (summary.status !== 'pass') return;
 
   // Record trust for nodes that were actually validated

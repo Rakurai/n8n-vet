@@ -7,6 +7,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { McpToolCaller } from '../../../src/execution/mcp-client.js';
+import { VERSION } from '../../../src/version.js';
 
 /**
  * Create a McpToolCaller connected to n8n's Streamable HTTP MCP server.
@@ -27,7 +28,7 @@ export async function createN8nMcpCaller(
     },
   });
 
-  const client = new Client({ name: 'n8n-proctor-integration', version: '0.1.0' });
+  const client = new Client({ name: 'n8n-proctor-integration', version: VERSION });
   await client.connect(transport as Parameters<typeof client.connect>[0]);
 
   const callTool: McpToolCaller = async (toolName: string, args: Record<string, unknown>): Promise<unknown> => {

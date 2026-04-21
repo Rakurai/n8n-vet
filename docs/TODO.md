@@ -2,16 +2,21 @@
 
 ---
 
-## v0.1.0 Release (human tasks)
+## v0.2.0 (current)
 
-- **Claude plugin install test** — Test plugin install from git URL in clean Claude Code session. Final acceptance gate.
-- **`npm pack` verification** — Inspect tarball contents to verify no test/, docs/internal/, .scratch/ leak.
+Audit remediation release. All items complete:
+
+- Boundary hardening: explicit degraded bootstrap, error sanitization, test typecheck
+- Slice semantics consolidation: shared traversal primitives, unified boundary classification
+- Orchestrator decompression: phase helpers (validate, synthesize, persist)
+- Execution ownership: preparation moved to `execution/prepare.ts`, grouped deps
+- Dependency contract reshape: 7 named subsystem interfaces
 
 ---
 
-## v0.2.0 — Unblocked
+## v0.3.0 — Unblocked
 
-Work that can start immediately after v0.1.0 ships. No external blockers.
+Work that can start immediately. No external blockers.
 
 ### Field-Testing Feedback (2026-04-20)
 

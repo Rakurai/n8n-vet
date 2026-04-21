@@ -2,7 +2,7 @@
 name: validate-workflow
 description: Use to validate n8n-as-code workflow files, debug n8n execution failures, check data flow between nodes, or decide whether a workflow change needs runtime validation. Requires the n8n-proctor MCP server.
 license: MIT
-compatibility: ">=0.1.0"
+compatibility: ">=0.2.0"
 ---
 
 # n8n Workflow Validation

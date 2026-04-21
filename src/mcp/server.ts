@@ -18,6 +18,7 @@ import type { ValidationRequest } from '../orchestrator/types.js';
 import { buildGuardrailExplanation, buildTrustStatusReport } from '../surface.js';
 import type { NodeIdentity } from '../types/identity.js';
 import type { AgentTarget } from '../types/target.js';
+import { VERSION } from '../version.js';
 
 // ── Input schemas ────────────────────────────────────────────────
 
@@ -96,7 +97,7 @@ function validatePathBoundary(workflowPath: string): string {
 
 /** Create an MCP server with all four n8n-proctor tools registered. */
 export function createServer(deps: OrchestratorDeps, callTool?: McpToolCaller): McpServer {
-  const server = new McpServer({ name: 'n8n-proctor', version: '0.1.0' });
+  const server = new McpServer({ name: 'n8n-proctor', version: VERSION });
 
   // ── validate ─────────────────────────────────────────────────
   server.registerTool(

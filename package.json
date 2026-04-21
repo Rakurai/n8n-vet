@@ -1,6 +1,6 @@
 {
   "name": "n8n-proctor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Guardrailed validation control for agent-built n8n workflows",
   "type": "module",
   "engines": {
@@ -33,7 +33,8 @@
     "lint:fix": "biome check --write src/",
     "format": "biome format --write src/",
     "typecheck": "tsc --noEmit -p tsconfig.check.json",
-    "ci": "npm run typecheck && npm run lint && npm test"
+    "check-version": "node scripts/check-version.js",
+    "ci": "npm run typecheck && npm run lint && npm test && npm run check-version"
   },
   "keywords": [
     "n8n",

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 n8n-proctor is a guardrailed validation control tool for agent-built n8n workflows. It reduces agent thrash by keeping validation local, bounded, diagnostic, and cheap — focusing on workflow slices and paths rather than whole-workflow reruns.
 
-**Status:** v0.1.0 implemented. Phases 001–015 are complete (shared types, static analysis, trust, guardrails, execution, diagnostics, orchestrator, MCP/CLI surface, plugin wrapper, integration testing, audit remediations, execution backend revision, test suite audit, n8nac sibling alignment, validate/test separation). Tier-3 pin data sourcing is wired — `constructPinData` uses MCP `prepare_test_pin_data` schemas when cached artifacts are unavailable. The validate→test lifecycle is integration-tested (scenario 15).
+**Status:** v0.2.0
 
 ## Development Commands
 
@@ -19,6 +19,8 @@ npm run typecheck      # Type-check without emitting (tsc --noEmit)
 npm run lint           # Lint with Biome (biome check src/)
 npm run lint:fix       # Auto-fix lint issues
 npm run format         # Format with Biome
+npm run check-version  # Verify version-bearing files match package.json
+npm run ci             # typecheck + lint + test + check-version
 ```
 
 Run a single test file: `npx vitest run test/guardrails/evaluate.test.ts`
@@ -26,6 +28,20 @@ Run a single test file: `npx vitest run test/guardrails/evaluate.test.ts`
 Run tests matching a pattern: `npx vitest run -t "pattern"`
 
 For the full testing guide (scenarios, fixtures, assertion helpers, known gaps), see `test/TESTING.md`.
+
+## Version Management
+
+`package.json` is the single source of truth for the version number.
+
+- **Runtime (`.ts` files)**: Import `VERSION` from `src/version.ts`, which reads `package.json` at runtime via `createRequire`. Never hardcode a version string in TypeScript.
+- **Non-TS files** (`.claude-plugin/plugin.json`, `skills/validate-workflow/SKILL.md`): Checked by `scripts/check-version.js`. Run `node scripts/check-version.js --fix` to sync them after bumping `package.json`.
+- **CI**: `npm run ci` includes `check-version`, so version drift is caught automatically.
+
+**Release-prep checklist:**
+1. Bump `version` in `package.json`.
+2. Run `node scripts/check-version.js --fix` to update non-TS files.
+3. Update `CHANGELOG.md` with the new version entry.
+4. Run `npm run ci` to confirm everything is in sync.
 
 ## Code Architecture
 
@@ -44,15 +60,15 @@ parse → graph → trust → target → guardrails → static analysis → exec
 | Static Analysis | `src/static-analysis/` | Graph parsing, expression tracing, data-loss detection, schema/param validation, node classification |
 | Trust | `src/trust/` | Content hashing, change detection, trust state persistence, rerun assessment |
 | Guardrails | `src/guardrails/` | Evaluate whether to proceed/narrow/redirect/refuse; evidence and narrowing logic |
-| Execution | `src/execution/` | MCP client (`test_workflow` — sole execution trigger, `get_execution` — data retrieval), pin data construction, capability detection (`'mcp' \| 'static-only'`) |
+| Execution | `src/execution/` | Execution preparation (`prepare.ts`), MCP client (`test_workflow`, `get_execution`), pin data construction, capability detection (`'mcp' \| 'static-only'`) |
 | Diagnostics | `src/diagnostics/` | Synthesize structured summaries from static + execution results, error classification, hints |
-| Orchestrator | `src/orchestrator/` | Request interpretation, path selection, workflow snapshots |
-| MCP Surface | `src/mcp/` | MCP server exposing `validate`, `trust_status`, `explain` tools |
+| Orchestrator | `src/orchestrator/` | Request interpretation, path selection, workflow snapshots, phase delegation (`phases/validate`, `phases/synthesize`, `phases/persist`) |
+| MCP Surface | `src/mcp/` | MCP server exposing `validate`, `test`, `trust_status`, `explain` tools |
 | CLI | `src/cli/` | CLI commands and human-readable formatting |
 | Types | `src/types/` | Shared domain types (graph, slice, target, trust, guardrail, diagnostic, surface) |
 
 **Key wiring files:**
-- `src/deps.ts` — dependency injection container (`buildDeps`)
+- `src/deps.ts` — grouped dependency injection container (`buildDeps`) with 7 subsystem contracts
 - `src/surface.ts` — public surface helpers (trust status reports, guardrail explanations)
 - `src/errors.ts` — error mapping to MCP error types
 
