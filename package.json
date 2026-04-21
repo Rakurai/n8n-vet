@@ -1,6 +1,6 @@
 {
   "name": "n8n-proctor",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Guardrailed validation control for agent-built n8n workflows",
   "type": "module",
   "engines": {
@@ -24,6 +24,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "prepare": "npm run build",
     "test": "vitest run",
     "test:integration": "dotenv -- tsx test/integration/run.ts",
     "test:integ:check": "dotenv -- tsx test/integration/run.ts --check",

@@ -56,4 +56,13 @@ describe('hooks/hooks.json SessionStart hook', () => {
     // Verify the specific rm -f pattern exists, not just that 'rm' appears somewhere
     expect(command).toMatch(/rm\s+-f\s+.*CLAUDE_PLUGIN_DATA.*package\.json/);
   });
+
+  it('has a build hook that compiles dist/ in PLUGIN_ROOT when missing', () => {
+    const buildHook = firstGroup.hooks[1];
+    expect(buildHook).toBeDefined();
+    expect(buildHook!.type).toBe('command');
+    expect(buildHook!.command).toContain('test -d');
+    expect(buildHook!.command).toContain('CLAUDE_PLUGIN_ROOT');
+    expect(buildHook!.command).toContain('npm run build');
+  });
 });

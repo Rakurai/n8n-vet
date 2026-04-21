@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-04-21
+
+### Fixed
+
+- **Plugin cache missing dist/** (#6) — Split SessionStart hook into dependency sync (PLUGIN_DATA) and build check (PLUGIN_ROOT). The v0.2.1 hook ran `npm run build` in PLUGIN_DATA where no source files exist. New hook checks for `dist/` in PLUGIN_ROOT and builds there when missing.
+- **`prepare` script added** — `package.json` now includes `"prepare": "npm run build"` so `dist/` is compiled automatically during npm git installations.
+
 ## [0.2.1] - 2026-04-21
 
 Bug fixes and field-testing improvements from GitHub issues #1–#5.
