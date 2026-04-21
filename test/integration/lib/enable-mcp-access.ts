@@ -43,27 +43,6 @@ function writeState(fixturesDir: string, state: LocalState): void {
 }
 
 /**
- * Check whether a workflow already has `availableInMCP: true`.
- */
-async function hasMcpAccess(
-  host: string,
-  apiKey: string,
-  workflowId: string,
-): Promise<boolean> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'X-N8N-API-KEY': apiKey,
-  };
-
-  const resp = await fetch(`${host}/api/v1/workflows/${workflowId}`, { headers });
-  if (!resp.ok) {
-    throw new Error(`Failed to GET workflow ${workflowId}: HTTP ${resp.status}`);
-  }
-  const data = (await resp.json()) as WorkflowResponse;
-  return data.settings?.availableInMCP === true;
-}
-
-/**
  * Force `availableInMCP: true` on a single workflow via PUT.
  */
 async function forceEnableMcpAccess(

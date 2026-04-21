@@ -35,6 +35,24 @@ export interface McpError {
 /** Response envelope wrapping all MCP tool and CLI command outputs. */
 export type McpResponse<T> = { success: true; data: T } | { success: false; error: McpError };
 
+/** Maximum message length before truncation (content portion). */
+const MAX_MESSAGE_LENGTH = 500;
+
+/**
+ * Sanitize a message for inclusion in an error envelope.
+ * Strips control characters (< 0x20 except \n and \t) and truncates
+ * to 500 characters with a ` [truncated]` suffix when exceeded.
+ */
+export function sanitizeMessage(msg: string): string {
+  // Strip control characters (codepoints < 0x20) except \n (0x0A) and \t (0x09)
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentionally matching control chars for sanitization
+  const cleaned = msg.replace(/[\x00-\x08\x0B-\x1F]/g, '');
+  if (cleaned.length > MAX_MESSAGE_LENGTH) {
+    return `${cleaned.slice(0, MAX_MESSAGE_LENGTH)} [truncated]`;
+  }
+  return cleaned;
+}
+
 /**
  * Map a domain error to an McpError for the response envelope.
  *
@@ -48,40 +66,40 @@ export function mapToMcpError(error: unknown): McpError {
     'code' in error &&
     (error as NodeJS.ErrnoException).code === 'ENOENT'
   ) {
-    return { type: 'workflow_not_found', message: (error as Error).message };
+    return { type: 'workflow_not_found', message: sanitizeMessage((error as Error).message) };
   }
 
   if (error instanceof MalformedWorkflowError) {
-    return { type: 'parse_error', message: error.message };
+    return { type: 'parse_error', message: sanitizeMessage(error.message) };
   }
 
   if (error instanceof ZodError) {
-    return { type: 'parse_error', message: error.message };
+    return { type: 'parse_error', message: sanitizeMessage(error.message) };
   }
 
   if (error instanceof ConfigurationError) {
-    return { type: 'configuration_error', message: error.message };
+    return { type: 'configuration_error', message: sanitizeMessage(error.message) };
   }
 
   if (error instanceof ExecutionInfrastructureError) {
-    return { type: 'infrastructure_error', message: error.message };
+    return { type: 'infrastructure_error', message: sanitizeMessage(error.message) };
   }
 
   if (error instanceof TrustPersistenceError) {
-    return { type: 'trust_error', message: error.message };
+    return { type: 'trust_error', message: sanitizeMessage(error.message) };
   }
 
   if (error instanceof ExecutionPreconditionError) {
-    return { type: 'precondition_error', message: error.message };
+    return { type: 'precondition_error', message: sanitizeMessage(error.message) };
   }
 
   if (error instanceof SynthesisError) {
-    return { type: 'internal_error', message: error.message };
+    return { type: 'internal_error', message: sanitizeMessage(error.message) };
   }
 
   if (error instanceof Error) {
-    return { type: 'internal_error', message: error.message };
+    return { type: 'internal_error', message: sanitizeMessage(error.message) };
   }
 
-  return { type: 'internal_error', message: String(error) };
+  return { type: 'internal_error', message: sanitizeMessage(String(error)) };
 }

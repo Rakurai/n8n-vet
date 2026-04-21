@@ -5,7 +5,7 @@ import type { OrchestratorDeps, ValidationRequest } from '../../src/orchestrator
 import type { WorkflowGraph, GraphNode, Edge } from '../../src/types/graph.js';
 import type { NodeIdentity } from '../../src/types/identity.js';
 import type { TrustState, NodeChangeSet } from '../../src/types/trust.js';
-import type { DiagnosticSummary, ResolvedTarget, AvailableCapabilities, ValidationMeta } from '../../src/types/diagnostic.js';
+import type { DiagnosticSummary, ResolvedTarget, ValidationMeta } from '../../src/types/diagnostic.js';
 import type { GuardrailDecision } from '../../src/types/guardrail.js';
 import type { WorkflowAST } from '@n8n-as-code/transformer';
 
@@ -13,7 +13,7 @@ import type { WorkflowAST } from '@n8n-as-code/transformer';
 
 function makeNode(name: string, displayName?: string): GraphNode {
   return {
-    name,
+    name: name as NodeIdentity,
     displayName: displayName ?? name,
     type: 'n8n-nodes-base.noOp',
     typeVersion: 1,
@@ -25,26 +25,27 @@ function makeNode(name: string, displayName?: string): GraphNode {
 }
 
 function makeEdge(from: string, to: string): Edge {
-  return { from, fromOutput: 0, isError: false, to, toInput: 0 };
+  return { from: from as NodeIdentity, fromOutput: 0, isError: false, to: to as NodeIdentity, toInput: 0 };
 }
 
 function makeGraph(nodeNames: string[], edges: [string, string][], metadataId = 'n8n-uuid-123'): WorkflowGraph {
-  const nodes = new Map<string, GraphNode>();
-  const displayNameIndex = new Map<string, string>();
-  const forward = new Map<string, Edge[]>();
-  const backward = new Map<string, Edge[]>();
+  const nodes = new Map<NodeIdentity, GraphNode>();
+  const displayNameIndex = new Map<string, NodeIdentity>();
+  const forward = new Map<NodeIdentity, Edge[]>();
+  const backward = new Map<NodeIdentity, Edge[]>();
 
   for (const name of nodeNames) {
-    nodes.set(name, makeNode(name));
-    displayNameIndex.set(name, name);
-    forward.set(name, []);
-    backward.set(name, []);
+    const id = name as NodeIdentity;
+    nodes.set(id, makeNode(name));
+    displayNameIndex.set(name, id);
+    forward.set(id, []);
+    backward.set(id, []);
   }
 
   for (const [from, to] of edges) {
     const edge = makeEdge(from, to);
-    forward.get(from)!.push(edge);
-    backward.get(to)!.push(edge);
+    forward.get(from as NodeIdentity)!.push(edge);
+    backward.get(to as NodeIdentity)!.push(edge);
   }
 
   const nodeAsts = nodeNames.map((name) => ({
@@ -109,7 +110,7 @@ function createMockDeps(overrides?: Partial<OrchestratorDeps>): OrchestratorDeps
     [['trigger', 'httpReq'], ['httpReq', 'setNode'], ['setNode', 'end']],
   );
   // Make one node different in the old graph
-  previousGraph.nodes.get('setNode')!.parameters = { old: true };
+  previousGraph.nodes.get('setNode' as NodeIdentity)!.parameters = { old: true };
 
   const changeSet: NodeChangeSet = {
     added: [],
@@ -438,7 +439,7 @@ describe('interpret() — workflow-target with guardrail narrowing (US3)', () =>
       pinData: null,
     };
 
-    const result = await interpret(request, deps);
+    await interpret(request, deps);
 
     // guardrailActions is populated by synthesize, which gets the decisions
     const synthInput = vi.mocked(deps.synthesize).mock.calls[0]![0];
@@ -713,7 +714,7 @@ describe('interpret() — multi-path validation (US6 T020)', () => {
       [['trigger', 'B'], ['B', 'C'], ['trigger', 'D'], ['D', 'end']],
     );
     // Make trigger have two outputs
-    branchGraph.forward.set('trigger', [
+    branchGraph.forward.set('trigger' as NodeIdentity, [
       makeEdge('trigger', 'B'),
       { ...makeEdge('trigger', 'D'), fromOutput: 1 },
     ]);

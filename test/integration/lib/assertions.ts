@@ -95,7 +95,7 @@ export function assertExecutedPathContains(
   }
   const pathNames = summary.executedPath.map(n => n.name);
   for (const name of nodeNames) {
-    if (!pathNames.includes(name)) {
+    if (!pathNames.includes(name as import('../../../src/types/identity.js').NodeIdentity)) {
       throw new Error(
         `Expected executedPath to contain '${name}', got: [${pathNames.join(', ')}]${ctx}`,
       );
@@ -115,7 +115,7 @@ export function assertExecutedPathOrder(
   const pathNames = summary.executedPath.map(n => n.name);
   let lastIndex = -1;
   for (const name of orderedNames) {
-    const idx = pathNames.indexOf(name, lastIndex + 1);
+    const idx = pathNames.indexOf(name as import('../../../src/types/identity.js').NodeIdentity, lastIndex + 1);
     if (idx === -1) {
       throw new Error(
         `Expected executedPath to contain '${name}' after index ${lastIndex}, got: [${pathNames.join(', ')}]${ctx}`,

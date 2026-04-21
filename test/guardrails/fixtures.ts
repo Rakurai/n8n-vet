@@ -40,7 +40,7 @@ interface NodeDef {
 
 function makeGraphNode(def: NodeDef): GraphNode {
   return {
-    name: def.name,
+    name: def.name as NodeIdentity,
     displayName: def.displayName,
     type: def.type,
     typeVersion: def.typeVersion ?? 1,
@@ -65,28 +65,29 @@ interface GraphSpec {
 }
 
 function buildGraph(spec: GraphSpec): WorkflowGraph {
-  const nodes = new Map<string, GraphNode>();
-  const forward = new Map<string, Edge[]>();
-  const backward = new Map<string, Edge[]>();
-  const displayNameIndex = new Map<string, string>();
+  const nodes = new Map<NodeIdentity, GraphNode>();
+  const forward = new Map<NodeIdentity, Edge[]>();
+  const backward = new Map<NodeIdentity, Edge[]>();
+  const displayNameIndex = new Map<string, NodeIdentity>();
 
   for (const def of spec.nodes) {
-    nodes.set(def.name, makeGraphNode(def));
-    forward.set(def.name, []);
-    backward.set(def.name, []);
-    displayNameIndex.set(def.displayName, def.name);
+    const id = def.name as NodeIdentity;
+    nodes.set(id, makeGraphNode(def));
+    forward.set(id, []);
+    backward.set(id, []);
+    displayNameIndex.set(def.displayName, id);
   }
 
   for (const e of spec.edges) {
     const edge: Edge = {
-      from: e.from,
+      from: e.from as NodeIdentity,
       fromOutput: e.fromOutput ?? 0,
       isError: e.isError ?? false,
-      to: e.to,
+      to: e.to as NodeIdentity,
       toInput: e.toInput ?? 0,
     };
-    (forward.get(e.from) as Edge[]).push(edge);
-    (backward.get(e.to) as Edge[]).push(edge);
+    (forward.get(e.from as NodeIdentity) as Edge[]).push(edge);
+    (backward.get(e.to as NodeIdentity) as Edge[]).push(edge);
   }
 
   // Provide a minimal AST stub — tests don't need full AST

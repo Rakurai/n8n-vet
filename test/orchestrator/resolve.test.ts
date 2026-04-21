@@ -10,7 +10,7 @@ import type { WorkflowAST } from '@n8n-as-code/transformer';
 
 function makeNode(name: string, displayName?: string): GraphNode {
   return {
-    name,
+    name: name as NodeIdentity,
     displayName: displayName ?? name,
     type: 'n8n-nodes-base.noOp',
     typeVersion: 1,
@@ -23,42 +23,42 @@ function makeNode(name: string, displayName?: string): GraphNode {
 
 function makeEdge(from: string, to: string, opts?: { isError?: boolean; fromOutput?: number }): Edge {
   return {
-    from,
+    from: from as NodeIdentity,
     fromOutput: opts?.fromOutput ?? 0,
     isError: opts?.isError ?? false,
-    to,
+    to: to as NodeIdentity,
     toInput: 0,
   };
 }
 
 /** Build a linear chain: A → B → C → D */
 function linearGraph(): WorkflowGraph {
-  const nodes = new Map<string, GraphNode>([
-    ['A', makeNode('A', 'Trigger A')],
-    ['B', makeNode('B', 'HTTP B')],
-    ['C', makeNode('C', 'Set C')],
-    ['D', makeNode('D', 'End D')],
+  const nodes = new Map<NodeIdentity, GraphNode>([
+    ['A' as NodeIdentity, makeNode('A', 'Trigger A')],
+    ['B' as NodeIdentity, makeNode('B', 'HTTP B')],
+    ['C' as NodeIdentity, makeNode('C', 'Set C')],
+    ['D' as NodeIdentity, makeNode('D', 'End D')],
   ]);
 
-  const forward = new Map<string, Edge[]>([
-    ['A', [makeEdge('A', 'B')]],
-    ['B', [makeEdge('B', 'C')]],
-    ['C', [makeEdge('C', 'D')]],
-    ['D', []],
+  const forward = new Map<NodeIdentity, Edge[]>([
+    ['A' as NodeIdentity, [makeEdge('A', 'B')]],
+    ['B' as NodeIdentity, [makeEdge('B', 'C')]],
+    ['C' as NodeIdentity, [makeEdge('C', 'D')]],
+    ['D' as NodeIdentity, []],
   ]);
 
-  const backward = new Map<string, Edge[]>([
-    ['A', []],
-    ['B', [makeEdge('A', 'B')]],
-    ['C', [makeEdge('B', 'C')]],
-    ['D', [makeEdge('C', 'D')]],
+  const backward = new Map<NodeIdentity, Edge[]>([
+    ['A' as NodeIdentity, []],
+    ['B' as NodeIdentity, [makeEdge('A', 'B')]],
+    ['C' as NodeIdentity, [makeEdge('B', 'C')]],
+    ['D' as NodeIdentity, [makeEdge('C', 'D')]],
   ]);
 
-  const displayNameIndex = new Map<string, string>([
-    ['Trigger A', 'A'],
-    ['HTTP B', 'B'],
-    ['Set C', 'C'],
-    ['End D', 'D'],
+  const displayNameIndex = new Map<string, NodeIdentity>([
+    ['Trigger A', 'A' as NodeIdentity],
+    ['HTTP B', 'B' as NodeIdentity],
+    ['Set C', 'C' as NodeIdentity],
+    ['End D', 'D' as NodeIdentity],
   ]);
 
   return {
@@ -72,32 +72,32 @@ function linearGraph(): WorkflowGraph {
 
 /** Build a branching graph: A → B → C, A → D → E */
 function branchingGraph(): WorkflowGraph {
-  const nodes = new Map<string, GraphNode>([
-    ['A', makeNode('A')],
-    ['B', makeNode('B')],
-    ['C', makeNode('C')],
-    ['D', makeNode('D')],
-    ['E', makeNode('E')],
+  const nodes = new Map<NodeIdentity, GraphNode>([
+    ['A' as NodeIdentity, makeNode('A')],
+    ['B' as NodeIdentity, makeNode('B')],
+    ['C' as NodeIdentity, makeNode('C')],
+    ['D' as NodeIdentity, makeNode('D')],
+    ['E' as NodeIdentity, makeNode('E')],
   ]);
 
-  const forward = new Map<string, Edge[]>([
-    ['A', [makeEdge('A', 'B'), makeEdge('A', 'D', { fromOutput: 1 })]],
-    ['B', [makeEdge('B', 'C')]],
-    ['C', []],
-    ['D', [makeEdge('D', 'E')]],
-    ['E', []],
+  const forward = new Map<NodeIdentity, Edge[]>([
+    ['A' as NodeIdentity, [makeEdge('A', 'B'), makeEdge('A', 'D', { fromOutput: 1 })]],
+    ['B' as NodeIdentity, [makeEdge('B', 'C')]],
+    ['C' as NodeIdentity, []],
+    ['D' as NodeIdentity, [makeEdge('D', 'E')]],
+    ['E' as NodeIdentity, []],
   ]);
 
-  const backward = new Map<string, Edge[]>([
-    ['A', []],
-    ['B', [makeEdge('A', 'B')]],
-    ['C', [makeEdge('B', 'C')]],
-    ['D', [makeEdge('A', 'D', { fromOutput: 1 })]],
-    ['E', [makeEdge('D', 'E')]],
+  const backward = new Map<NodeIdentity, Edge[]>([
+    ['A' as NodeIdentity, []],
+    ['B' as NodeIdentity, [makeEdge('A', 'B')]],
+    ['C' as NodeIdentity, [makeEdge('B', 'C')]],
+    ['D' as NodeIdentity, [makeEdge('A', 'D', { fromOutput: 1 })]],
+    ['E' as NodeIdentity, [makeEdge('D', 'E')]],
   ]);
 
-  const displayNameIndex = new Map<string, string>();
-  for (const [name] of nodes) displayNameIndex.set(name, name);
+  const displayNameIndex = new Map<string, NodeIdentity>();
+  for (const [name] of nodes) displayNameIndex.set(name as string, name);
 
   return {
     nodes,
@@ -268,7 +268,7 @@ describe('resolveTarget', () => {
       });
 
       // Snapshot diff says nothing changed (file identical to last snapshot)
-      const changeSet: NodeChangeSet = { changed: [], added: [], removed: [], modified: [] };
+      const changeSet: NodeChangeSet = { unchanged: [], added: [], removed: [], modified: [] };
 
       const result = resolveTarget({ kind: 'changed' }, graph, changeSet, trustState);
 
@@ -394,7 +394,7 @@ describe('resolveTarget', () => {
       // When C is trusted, forward propagation from B stops at C,
       // so D is not reached — slice should be smaller than 4.
       const trustState = emptyTrustState();
-      const nodeC = graph.nodes.get('C')!;
+      const nodeC = graph.nodes.get('C' as NodeIdentity)!;
       const hashC = computeContentHash(nodeC, graph.ast);
 
       trustState.nodes.set('C' as NodeIdentity, {

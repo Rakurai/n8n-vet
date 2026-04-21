@@ -11,7 +11,8 @@ import type { NodeIdentity } from '../../src/types/identity.js';
 import type { TrustState, NodeChangeSet, NodeTrustRecord } from '../../src/types/trust.js';
 import type { DiagnosticSummary, ResolvedTarget, ValidationMeta } from '../../src/types/diagnostic.js';
 import type { GuardrailDecision } from '../../src/types/guardrail.js';
-import type { McpResponse, McpError } from '../../src/errors.js';
+import type { McpToolCaller } from '../../src/execution/mcp-client.js';
+import type { McpResponse } from '../../src/errors.js';
 import type { WorkflowAST } from '@n8n-as-code/transformer';
 import { MalformedWorkflowError } from '../../src/static-analysis/errors.js';
 import { computeContentHash } from '../../src/trust/hash.js';
@@ -20,7 +21,7 @@ import { computeContentHash } from '../../src/trust/hash.js';
 
 function makeNode(name: string): GraphNode {
   return {
-    name,
+    name: name as NodeIdentity,
     displayName: name,
     type: 'n8n-nodes-base.noOp',
     typeVersion: 1,
@@ -32,26 +33,27 @@ function makeNode(name: string): GraphNode {
 }
 
 function makeEdge(from: string, to: string): Edge {
-  return { from, fromOutput: 0, isError: false, to, toInput: 0 };
+  return { from: from as NodeIdentity, fromOutput: 0, isError: false, to: to as NodeIdentity, toInput: 0 };
 }
 
 function makeGraph(nodeNames: string[], edges: [string, string][]): WorkflowGraph {
-  const nodes = new Map<string, GraphNode>();
-  const displayNameIndex = new Map<string, string>();
-  const forward = new Map<string, Edge[]>();
-  const backward = new Map<string, Edge[]>();
+  const nodes = new Map<NodeIdentity, GraphNode>();
+  const displayNameIndex = new Map<string, NodeIdentity>();
+  const forward = new Map<NodeIdentity, Edge[]>();
+  const backward = new Map<NodeIdentity, Edge[]>();
 
   for (const name of nodeNames) {
-    nodes.set(name, makeNode(name));
-    displayNameIndex.set(name, name);
-    forward.set(name, []);
-    backward.set(name, []);
+    const id = name as NodeIdentity;
+    nodes.set(id, makeNode(name));
+    displayNameIndex.set(name, id);
+    forward.set(id, []);
+    backward.set(id, []);
   }
 
   for (const [from, to] of edges) {
     const edge = makeEdge(from, to);
-    forward.get(from)!.push(edge);
-    backward.get(to)!.push(edge);
+    forward.get(from as NodeIdentity)!.push(edge);
+    backward.get(to as NodeIdentity)!.push(edge);
   }
 
   const nodeAsts = nodeNames.map((name) => ({
@@ -243,7 +245,7 @@ describe('MCP server — trust_status tool', () => {
 
   it('reports trusted nodes when trust records have matching content hash', async () => {
     const graph = makeGraph(['nodeA'], []);
-    const realHash = computeContentHash(graph.nodes.get('nodeA')!, graph.ast);
+    const realHash = computeContentHash(graph.nodes.get('nodeA' as NodeIdentity)!, graph.ast);
 
     const trustState: TrustState = {
       workflowId: 'test',
@@ -424,6 +426,80 @@ describe('MCP server — error envelopes', () => {
     expect(envelope.success).toBe(false);
     if (!envelope.success) {
       expect(envelope.error.type).toBe('internal_error');
+    }
+  });
+});
+
+describe('MCP server — test tool', () => {
+  it('returns success envelope with DiagnosticSummary', async () => {
+    const summary = passSummary();
+    const deps = createMockDeps({
+      synthesize: vi.fn().mockReturnValue(summary),
+    });
+    const server = createServer(deps);
+    const testTool = getToolHandler(server, 'test');
+
+    const result = await testTool({ kind: 'changed', workflowPath: 'test/wf.ts' }) as { content: Array<{ type: string; text: string }> };
+    const envelope = parseEnvelope(result);
+
+    expect(envelope.success).toBe(true);
+    if (envelope.success) {
+      expect(envelope.data).toHaveProperty('schemaVersion', 1);
+      expect(envelope.data).toHaveProperty('status');
+    }
+  });
+
+  it('passes callTool through to interpret when provided', async () => {
+    const mockCallTool: McpToolCaller = vi.fn().mockResolvedValue({});
+    const deps = createMockDeps({
+      detectCapabilities: vi.fn().mockResolvedValue({
+        level: 'mcp',
+        mcpAvailable: true,
+        mcpTools: ['test_workflow', 'get_execution'],
+      }),
+    });
+    const server = createServer(deps, mockCallTool, 'http://localhost:5678', 'api-key');
+    const testTool = getToolHandler(server, 'test');
+
+    await testTool({ kind: 'changed', workflowPath: 'test/wf.ts' });
+
+    // When callTool is provided and mcpAvailable, executeSmoke should be called
+    expect(deps.executeSmoke).toHaveBeenCalled();
+  });
+
+  it('passes pinData through to interpret', async () => {
+    const mockCallTool: McpToolCaller = vi.fn().mockResolvedValue({});
+    const deps = createMockDeps({
+      detectCapabilities: vi.fn().mockResolvedValue({
+        level: 'mcp',
+        mcpAvailable: true,
+        mcpTools: ['test_workflow', 'get_execution'],
+      }),
+    });
+    const server = createServer(deps, mockCallTool, 'http://localhost:5678', 'api-key');
+    const testTool = getToolHandler(server, 'test');
+
+    const pinData = { 'Node1': [{ json: { key: 'value' } }] };
+    await testTool({ kind: 'changed', workflowPath: 'test/wf.ts', pinData });
+
+    // constructPinData is called during execution pipeline
+    expect(deps.constructPinData).toHaveBeenCalled();
+  });
+
+  it('returns error-status diagnostic when parseWorkflowFile fails', async () => {
+    const deps = createMockDeps({
+      parseWorkflowFile: vi.fn().mockRejectedValue(new MalformedWorkflowError('bad nodes')),
+    });
+    const server = createServer(deps);
+    const testTool = getToolHandler(server, 'test');
+
+    const result = await testTool({ kind: 'changed', workflowPath: 'bad.ts' }) as { content: Array<{ type: string; text: string }> };
+    const envelope = parseEnvelope<DiagnosticSummary>(result);
+
+    // interpret catches parse errors internally and returns error-status diagnostic
+    expect(envelope.success).toBe(true);
+    if (envelope.success) {
+      expect(envelope.data.status).toBe('error');
     }
   });
 });

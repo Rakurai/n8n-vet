@@ -9,12 +9,15 @@ import {
 } from '../../src/trust/hash.js';
 import { ContentHashError } from '../../src/trust/errors.js';
 import type { WorkflowGraph, GraphNode } from '../../src/types/graph.js';
-import type { WorkflowAST, NodeAST } from '@n8n-as-code/transformer';
+import type { NodeIdentity } from '../../src/types/identity.js';
+import type { WorkflowAST } from '@n8n-as-code/transformer';
 
 const FIXTURES_DIR = resolve(
   fileURLToPath(import.meta.url),
   '../../fixtures/workflows',
 );
+
+const nid = (s: string) => s as NodeIdentity;
 
 async function loadLinearSimple(): Promise<WorkflowGraph> {
   const ast = await parseWorkflowFile(resolve(FIXTURES_DIR, 'linear-simple.ts'));
@@ -24,7 +27,7 @@ async function loadLinearSimple(): Promise<WorkflowGraph> {
 describe('computeContentHash', () => {
   it('produces stable hash regardless of property insertion order', async () => {
     const graph = await loadLinearSimple();
-    const node = graph.nodes.get('httpRequest')!;
+    const node = graph.nodes.get(nid('httpRequest'))!;
 
     const hash1 = computeContentHash(node, graph.ast);
     const hash2 = computeContentHash(node, graph.ast);
@@ -35,13 +38,13 @@ describe('computeContentHash', () => {
 
   it('excluded properties do not affect hash', async () => {
     const graph = await loadLinearSimple();
-    const node = graph.nodes.get('httpRequest')!;
+    const node = graph.nodes.get(nid('httpRequest'))!;
     const hash1 = computeContentHash(node, graph.ast);
 
     // Create a copy with different excluded properties
     const modified: GraphNode = {
       ...node,
-      name: 'differentPropertyName',
+      name: 'differentPropertyName' as NodeIdentity,
       displayName: 'Different Display Name',
       classification: 'shape-opaque',
     };
@@ -62,7 +65,7 @@ describe('computeContentHash', () => {
 
   it('different parameters produce different hashes', async () => {
     const graph = await loadLinearSimple();
-    const node = graph.nodes.get('httpRequest')!;
+    const node = graph.nodes.get(nid('httpRequest'))!;
     const hash1 = computeContentHash(node, graph.ast);
 
     const modified: GraphNode = {
@@ -76,7 +79,7 @@ describe('computeContentHash', () => {
 
   it('different type produces different hash', async () => {
     const graph = await loadLinearSimple();
-    const node = graph.nodes.get('httpRequest')!;
+    const node = graph.nodes.get(nid('httpRequest'))!;
     const hash1 = computeContentHash(node, graph.ast);
 
     const modified: GraphNode = {
@@ -90,7 +93,7 @@ describe('computeContentHash', () => {
 
   it('different credentials produce different hash', async () => {
     const graph = await loadLinearSimple();
-    const node = graph.nodes.get('httpRequest')!;
+    const node = graph.nodes.get(nid('httpRequest'))!;
     const hash1 = computeContentHash(node, graph.ast);
 
     const modified: GraphNode = {
@@ -104,7 +107,7 @@ describe('computeContentHash', () => {
 
   it('different disabled state produces different hash', async () => {
     const graph = await loadLinearSimple();
-    const node = graph.nodes.get('httpRequest')!;
+    const node = graph.nodes.get(nid('httpRequest'))!;
     const hash1 = computeContentHash(node, graph.ast);
 
     const modified: GraphNode = { ...node, disabled: true };
@@ -115,16 +118,16 @@ describe('computeContentHash', () => {
   it('throws ContentHashError when serialization fails', () => {
     // BigInt values cannot be serialized by JSON.stringify or json-stable-stringify
     const badNode: GraphNode = {
-      name: 'badNode',
+      name: 'badNode' as NodeIdentity,
       displayName: 'Bad Node',
       type: 'n8n-nodes-base.test',
       typeVersion: 1,
       parameters: { value: BigInt(42) as unknown as string },
-      credentials: undefined,
+      credentials: undefined as unknown as Record<string, unknown> | null,
       disabled: false,
       classification: 'shape-opaque',
     };
-    const emptyAst: WorkflowAST = { nodes: [], connections: {} };
+    const emptyAst = { nodes: [], connections: {} } as unknown as WorkflowAST;
 
     expect(() => computeContentHash(badNode, emptyAst)).toThrow(ContentHashError);
   });
@@ -147,7 +150,7 @@ describe('computeConnectionsHash', () => {
 
     // Create graph with reversed edge direction
     const modifiedForward = new Map(graph.forward);
-    modifiedForward.set('httpRequest', []);
+    modifiedForward.set(nid('httpRequest'), []);
     const modifiedGraph: WorkflowGraph = { ...graph, forward: modifiedForward };
 
     const hash2 = computeConnectionsHash(modifiedGraph);
@@ -172,9 +175,9 @@ describe('computeWorkflowHash', () => {
 
     // Modify a node's parameters
     const modifiedNodes = new Map(graph.nodes);
-    const node = { ...graph.nodes.get('httpRequest')! };
+    const node = { ...graph.nodes.get(nid('httpRequest'))! };
     node.parameters = { ...node.parameters, url: 'https://changed.example.com' };
-    modifiedNodes.set('httpRequest', node);
+    modifiedNodes.set(nid('httpRequest'), node);
     const modifiedGraph: WorkflowGraph = { ...graph, nodes: modifiedNodes };
 
     const hash2 = computeWorkflowHash(modifiedGraph);
@@ -186,7 +189,7 @@ describe('computeWorkflowHash', () => {
     const hash1 = computeWorkflowHash(graph);
 
     const modifiedForward = new Map(graph.forward);
-    modifiedForward.set('httpRequest', []);
+    modifiedForward.set(nid('httpRequest'), []);
     const modifiedGraph: WorkflowGraph = { ...graph, forward: modifiedForward };
 
     const hash2 = computeWorkflowHash(modifiedGraph);
@@ -197,11 +200,11 @@ describe('computeWorkflowHash', () => {
 describe('snapshot hash stability', () => {
   it('produces same hash after save→load round-trip', async () => {
     const graph = await loadLinearSimple();
-    const originalHash = computeContentHash(graph.nodes.get('httpRequest')!, graph.ast);
+    const originalHash = computeContentHash(graph.nodes.get(nid('httpRequest'))!, graph.ast);
 
     // Simulate snapshot round-trip: extract the trust-relevant fields
     // and reconstruct a stub AST, mirroring what loadSnapshot does
-    const node = graph.nodes.get('httpRequest')!;
+    const node = graph.nodes.get(nid('httpRequest'))!;
     const nodeAst = graph.ast.nodes.find((n: { propertyName: string }) => n.propertyName === node.name);
     const stubAst = {
       nodes: [{

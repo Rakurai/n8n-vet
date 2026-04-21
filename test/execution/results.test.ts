@@ -16,7 +16,7 @@ import type { RawResultData } from '../../src/execution/results.js';
 
 describe('extractExecutionData', () => {
   it('extracts a successful single-node execution', () => {
-    const raw: RawResultData = {
+    const raw = {
       runData: {
         httpRequest: [{
           startTime: 1000,
@@ -25,7 +25,7 @@ describe('extractExecutionData', () => {
         }],
       },
       lastNodeExecuted: 'httpRequest',
-    };
+    } as unknown as RawResultData;
 
     const data = extractExecutionData(raw, 'success');
     const nodeId = nodeIdentity('httpRequest');
@@ -37,7 +37,7 @@ describe('extractExecutionData', () => {
   });
 
   it('extracts error node with source lineage', () => {
-    const raw: RawResultData = {
+    const raw = {
       runData: {
         httpRequest: [{
           startTime: 1000,
@@ -61,7 +61,7 @@ describe('extractExecutionData', () => {
         name: 'NodeApiError',
         httpCode: '500',
       },
-    };
+    } as unknown as RawResultData;
 
     const data = extractExecutionData(raw, 'error');
     const nodeId = nodeIdentity('httpRequest');
@@ -76,7 +76,7 @@ describe('extractExecutionData', () => {
   });
 
   it('extracts hints from node runs', () => {
-    const raw: RawResultData = {
+    const raw = {
       runData: {
         transform: [{
           startTime: 1000,
@@ -87,7 +87,7 @@ describe('extractExecutionData', () => {
           ],
         }],
       },
-    };
+    } as unknown as RawResultData;
 
     const data = extractExecutionData(raw, 'success');
     const nodeId = nodeIdentity('transform');
@@ -100,13 +100,13 @@ describe('extractExecutionData', () => {
   });
 
   it('filters to requested nodeNames', () => {
-    const raw: RawResultData = {
+    const raw = {
       runData: {
         nodeA: [{ startTime: 0, executionTime: 10 }],
         nodeB: [{ startTime: 0, executionTime: 20 }],
         nodeC: [{ startTime: 0, executionTime: 30 }],
       },
-    };
+    } as unknown as RawResultData;
 
     const data = extractExecutionData(raw, 'success', ['nodeA', 'nodeC']);
     expect(data.nodeResults.size).toBe(2);
@@ -116,14 +116,14 @@ describe('extractExecutionData', () => {
   });
 
   it('handles multiple execution attempts per node', () => {
-    const raw: RawResultData = {
+    const raw = {
       runData: {
         retryNode: [
           { startTime: 0, executionTime: 100, executionStatus: 'error', error: { message: 'Timeout', name: 'NodeApiError', httpCode: '504' } },
           { startTime: 100, executionTime: 200 },
         ],
       },
-    };
+    } as unknown as RawResultData;
 
     const data = extractExecutionData(raw, 'success');
     const nodeId = nodeIdentity('retryNode');
@@ -133,7 +133,7 @@ describe('extractExecutionData', () => {
   });
 
   it('handles null source entries', () => {
-    const raw: RawResultData = {
+    const raw = {
       runData: {
         trigger: [{
           startTime: 0,
@@ -141,7 +141,7 @@ describe('extractExecutionData', () => {
           source: [null],
         }],
       },
-    };
+    } as unknown as RawResultData;
 
     const data = extractExecutionData(raw, 'success');
     const result = data.nodeResults.get(nodeIdentity('trigger'))![0]!;

@@ -7,16 +7,17 @@ import type { WorkflowAST } from '@n8n-as-code/transformer';
 import type { NodeSchemaProvider } from '../../src/static-analysis/schemas.js';
 
 function makeGraph(nodes: Array<{name: string; type: string; parameters: Record<string, unknown>; credentials?: Record<string, unknown> | null}>): WorkflowGraph {
-  const nodeMap = new Map<string, GraphNode>();
-  const displayNameIndex = new Map<string, string>();
+  const nodeMap = new Map<NodeIdentity, GraphNode>();
+  const displayNameIndex = new Map<string, NodeIdentity>();
   for (const n of nodes) {
-    nodeMap.set(n.name, {
-      name: n.name, displayName: n.name, type: n.type,
+    const id = n.name as NodeIdentity;
+    nodeMap.set(id, {
+      name: id, displayName: n.name, type: n.type,
       typeVersion: 1, parameters: n.parameters,
       credentials: n.credentials ?? null,
       disabled: false, classification: 'shape-replacing' as const,
     });
-    displayNameIndex.set(n.name, n.name);
+    displayNameIndex.set(n.name, id);
   }
   return {
     nodes: nodeMap, forward: new Map(), backward: new Map(),

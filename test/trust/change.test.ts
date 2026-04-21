@@ -3,7 +3,8 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildGraph, parseWorkflowFile } from '../../src/static-analysis/graph.js';
 import { computeChangeSet } from '../../src/trust/change.js';
-import type { WorkflowGraph, GraphNode, Edge } from '../../src/types/graph.js';
+import type { WorkflowGraph, GraphNode } from '../../src/types/graph.js';
+import type { NodeIdentity } from '../../src/types/identity.js';
 import type { WorkflowAST, NodeAST } from '@n8n-as-code/transformer';
 
 const FIXTURES_DIR = resolve(
@@ -23,8 +24,9 @@ function withModifiedNode(
   changes: Partial<GraphNode>,
 ): WorkflowGraph {
   const nodes = new Map(graph.nodes);
-  const original = nodes.get(nodeName)!;
-  nodes.set(nodeName, { ...original, ...changes });
+  const id = nodeName as NodeIdentity;
+  const original = nodes.get(id)!;
+  nodes.set(id, { ...original, ...changes });
   return { ...graph, nodes };
 }
 
@@ -50,13 +52,14 @@ function withAddedNode(
   nodeAst: Partial<NodeAST>,
 ): WorkflowGraph {
   const nodes = new Map(graph.nodes);
-  nodes.set(node.name, node);
+  const id = node.name;
+  nodes.set(id, node);
   const forward = new Map(graph.forward);
-  forward.set(node.name, []);
+  forward.set(id, []);
   const backward = new Map(graph.backward);
-  backward.set(node.name, []);
+  backward.set(id, []);
   const displayNameIndex = new Map(graph.displayNameIndex);
-  displayNameIndex.set(node.displayName, node.name);
+  displayNameIndex.set(node.displayName, id);
   const ast: WorkflowAST = {
     ...graph.ast,
     nodes: [
@@ -77,21 +80,22 @@ function withAddedNode(
 
 /** Remove a node from a graph. */
 function withRemovedNode(graph: WorkflowGraph, nodeName: string): WorkflowGraph {
+  const id = nodeName as NodeIdentity;
   const nodes = new Map(graph.nodes);
-  nodes.delete(nodeName);
+  nodes.delete(id);
   const forward = new Map(graph.forward);
-  forward.delete(nodeName);
+  forward.delete(id);
   // Remove edges pointing to this node
   for (const [key, edges] of forward) {
     forward.set(key, edges.filter((e) => e.to !== nodeName));
   }
   const backward = new Map(graph.backward);
-  backward.delete(nodeName);
+  backward.delete(id);
   for (const [key, edges] of backward) {
     backward.set(key, edges.filter((e) => e.from !== nodeName));
   }
   const displayNameIndex = new Map(graph.displayNameIndex);
-  const removedNode = graph.nodes.get(nodeName);
+  const removedNode = graph.nodes.get(id);
   if (removedNode) displayNameIndex.delete(removedNode.displayName);
   const ast: WorkflowAST = {
     ...graph.ast,
@@ -209,15 +213,15 @@ describe('computeChangeSet', () => {
     const previous = await loadLinearSimple();
     // Add an extra edge from httpRequest to scheduleTrigger (weird but tests connection change)
     const forward = new Map(previous.forward);
-    const httpEdges = [...(forward.get('httpRequest') ?? [])];
+    const httpEdges = [...(forward.get('httpRequest' as NodeIdentity) ?? [])];
     httpEdges.push({
-      from: 'httpRequest',
+      from: 'httpRequest' as NodeIdentity,
       fromOutput: 1,
       isError: false,
-      to: 'scheduleTrigger',
+      to: 'scheduleTrigger' as NodeIdentity,
       toInput: 0,
     });
-    forward.set('httpRequest', httpEdges);
+    forward.set('httpRequest' as NodeIdentity, httpEdges);
     const current: WorkflowGraph = { ...previous, forward };
 
     const changeSet = computeChangeSet(previous, current);
@@ -233,26 +237,26 @@ describe('computeChangeSet', () => {
     // Add an extra connection: scheduleTrigger → setFields (new incoming edge for setFields)
     // Must update both forward and backward adjacency for consistency
     const forward = new Map(previous.forward);
-    const triggerForwardEdges = [...(forward.get('scheduleTrigger') ?? [])];
+    const triggerForwardEdges = [...(forward.get('scheduleTrigger' as NodeIdentity) ?? [])];
     triggerForwardEdges.push({
-      from: 'scheduleTrigger',
+      from: 'scheduleTrigger' as NodeIdentity,
       fromOutput: 0,
       isError: false,
-      to: 'setFields',
+      to: 'setFields' as NodeIdentity,
       toInput: 1,
     });
-    forward.set('scheduleTrigger', triggerForwardEdges);
+    forward.set('scheduleTrigger' as NodeIdentity, triggerForwardEdges);
 
     const backward = new Map(previous.backward);
-    const setFieldsBackEdges = [...(backward.get('setFields') ?? [])];
+    const setFieldsBackEdges = [...(backward.get('setFields' as NodeIdentity) ?? [])];
     setFieldsBackEdges.push({
-      from: 'scheduleTrigger',
+      from: 'scheduleTrigger' as NodeIdentity,
       fromOutput: 0,
       isError: false,
-      to: 'setFields',
+      to: 'setFields' as NodeIdentity,
       toInput: 1,
     });
-    backward.set('setFields', setFieldsBackEdges);
+    backward.set('setFields' as NodeIdentity, setFieldsBackEdges);
     const current: WorkflowGraph = { ...previous, forward, backward };
 
     const changeSet = computeChangeSet(previous, current);
@@ -268,7 +272,7 @@ describe('computeChangeSet', () => {
   it('detects added node', async () => {
     const previous = await loadLinearSimple();
     const newNode: GraphNode = {
-      name: 'newNode',
+      name: 'newNode' as NodeIdentity,
       displayName: 'New Node',
       type: 'n8n-nodes-base.noOp',
       typeVersion: 1,
@@ -299,23 +303,23 @@ describe('computeChangeSet', () => {
 
   it('detects rename (removed+added with identical content)', async () => {
     const previous = await loadLinearSimple();
-    const originalNode = previous.nodes.get('httpRequest')!;
+    const originalNode = previous.nodes.get('httpRequest' as NodeIdentity)!;
     const originalAst = previous.ast.nodes.find((n) => n.propertyName === 'httpRequest')!;
 
     // Remove original, add renamed copy with same type/version/parameters
     let current = withRemovedNode(previous, 'httpRequest');
     const renamedNode: GraphNode = {
       ...originalNode,
-      name: 'renamedHttp',
+      name: 'renamedHttp' as NodeIdentity,
       displayName: 'Renamed HTTP',
     };
     current = withAddedNode(current, renamedNode, {
       type: originalAst.type,
       version: originalAst.version,
-      credentials: originalAst.credentials,
-      retryOnFail: originalAst.retryOnFail,
-      executeOnce: originalAst.executeOnce,
-      onError: originalAst.onError,
+      ...(originalAst.credentials !== undefined ? { credentials: originalAst.credentials } : {}),
+      ...(originalAst.retryOnFail !== undefined ? { retryOnFail: originalAst.retryOnFail } : {}),
+      ...(originalAst.executeOnce !== undefined ? { executeOnce: originalAst.executeOnce } : {}),
+      ...(originalAst.onError !== undefined ? { onError: originalAst.onError } : {}),
     });
 
     const changeSet = computeChangeSet(previous, current);

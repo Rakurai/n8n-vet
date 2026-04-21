@@ -8,6 +8,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { nodeIdentity } from '../../src/types/identity.js';
+import type { NodeIdentity } from '../../src/types/identity.js';
 import type { PinDataItem } from '../../src/execution/types.js';
 
 // Functions under test (will be imported once T013/T014 are implemented)
@@ -19,12 +20,12 @@ import { ExecutionPreconditionError } from '../../src/execution/errors.js';
 // ---------------------------------------------------------------------------
 
 function makeTestGraph(nodeNames: string[], triggerNodes: string[] = []) {
-  const nodes = new Map<string, { name: string; displayName: string; type: string; typeVersion: number; parameters: Record<string, unknown>; credentials: null; disabled: boolean; classification: 'shape-opaque' }>();
+  const nodes = new Map<NodeIdentity, { name: NodeIdentity; displayName: string; type: string; typeVersion: number; parameters: Record<string, unknown>; credentials: null; disabled: boolean; classification: 'shape-opaque' }>();
 
   for (const name of nodeNames) {
     const isTrigger = triggerNodes.includes(name);
-    nodes.set(name, {
-      name,
+    nodes.set(name as NodeIdentity, {
+      name: name as NodeIdentity,
       displayName: name,
       type: isTrigger ? 'n8n-nodes-base.manualTrigger' : 'n8n-nodes-base.httpRequest',
       typeVersion: 1,

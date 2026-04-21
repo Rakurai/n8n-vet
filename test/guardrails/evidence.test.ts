@@ -7,7 +7,7 @@ import { assembleEvidence } from '../../src/guardrails/evidence.js';
 import type { EvaluationInput } from '../../src/guardrails/types.js';
 import type { NodeIdentity } from '../../src/types/identity.js';
 import { nodeIdentity } from '../../src/types/identity.js';
-import type { TrustState, NodeTrustRecord, NodeChangeSet } from '../../src/types/trust.js';
+import type { TrustState, NodeTrustRecord } from '../../src/types/trust.js';
 import type { WorkflowGraph } from '../../src/types/graph.js';
 import type { WorkflowAST } from '@n8n-as-code/transformer';
 
@@ -23,7 +23,7 @@ function makeInput(overrides?: Partial<EvaluationInput>): EvaluationInput {
   return {
     target: { kind: 'changed' },
     targetNodes: new Set<NodeIdentity>(),
-    layer: 'static',
+    tool: 'validate',
     force: false,
     trustState: { workflowId: 'test', nodes: new Map(), connectionsHash: '' },
     changeSet: { added: [], removed: [], modified: [], unchanged: [] },

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { evaluate } from '../../src/guardrails/evaluate.js';
 import { assessEscalationTriggers } from '../../src/guardrails/redirect.js';
+import type { NodeIdentity } from '../../src/types/identity.js';
 import {
   branchingGraph,
   emptyTrustState,
@@ -214,11 +215,11 @@ describe('assessEscalationTriggers', () => {
   it('unresolvable branching ref with opaque upstream → triggered', () => {
     // Build a custom graph: opaque → if → output
     // The 'if' branching node has shape-opaque upstream, so the !ref.resolved branch triggers
-    const nodes = new Map<string, import('../../src/types/graph.js').GraphNode>([
+    const nodes = new Map<NodeIdentity, import('../../src/types/graph.js').GraphNode>([
       [
-        'opaque',
+        'opaque' as NodeIdentity,
         {
-          name: 'opaque',
+          name: 'opaque' as NodeIdentity,
           displayName: 'Opaque',
           type: 'n8n-nodes-base.code',
           typeVersion: 1,
@@ -229,9 +230,9 @@ describe('assessEscalationTriggers', () => {
         },
       ],
       [
-        'if',
+        'if' as NodeIdentity,
         {
-          name: 'if',
+          name: 'if' as NodeIdentity,
           displayName: 'Check',
           type: 'n8n-nodes-base.if',
           typeVersion: 1,
@@ -242,9 +243,9 @@ describe('assessEscalationTriggers', () => {
         },
       ],
       [
-        'output',
+        'output' as NodeIdentity,
         {
-          name: 'output',
+          name: 'output' as NodeIdentity,
           displayName: 'Output',
           type: 'n8n-nodes-base.set',
           typeVersion: 1,
@@ -255,24 +256,24 @@ describe('assessEscalationTriggers', () => {
         },
       ],
     ]);
-    const forward = new Map([
-      ['opaque', [{ from: 'opaque', fromOutput: 0, to: 'if', toInput: 0, isError: false }]],
-      ['if', [{ from: 'if', fromOutput: 0, to: 'output', toInput: 0, isError: false }]],
-      ['output', []],
+    const forward = new Map<NodeIdentity, import('../../src/types/graph.js').Edge[]>([
+      ['opaque' as NodeIdentity, [{ from: 'opaque' as NodeIdentity, fromOutput: 0, to: 'if' as NodeIdentity, toInput: 0, isError: false }]],
+      ['if' as NodeIdentity, [{ from: 'if' as NodeIdentity, fromOutput: 0, to: 'output' as NodeIdentity, toInput: 0, isError: false }]],
+      ['output' as NodeIdentity, []],
     ]);
-    const backward = new Map([
-      ['opaque', []],
-      ['if', [{ from: 'opaque', fromOutput: 0, to: 'if', toInput: 0, isError: false }]],
-      ['output', [{ from: 'if', fromOutput: 0, to: 'output', toInput: 0, isError: false }]],
+    const backward = new Map<NodeIdentity, import('../../src/types/graph.js').Edge[]>([
+      ['opaque' as NodeIdentity, []],
+      ['if' as NodeIdentity, [{ from: 'opaque' as NodeIdentity, fromOutput: 0, to: 'if' as NodeIdentity, toInput: 0, isError: false }]],
+      ['output' as NodeIdentity, [{ from: 'if' as NodeIdentity, fromOutput: 0, to: 'output' as NodeIdentity, toInput: 0, isError: false }]],
     ]);
     const graph: import('../../src/types/graph.js').WorkflowGraph = {
       nodes,
       forward,
       backward,
-      displayNameIndex: new Map([
-        ['Opaque', 'opaque'],
-        ['Check', 'if'],
-        ['Output', 'output'],
+      displayNameIndex: new Map<string, NodeIdentity>([
+        ['Opaque', 'opaque' as NodeIdentity],
+        ['Check', 'if' as NodeIdentity],
+        ['Output', 'output' as NodeIdentity],
       ]),
       ast: { nodes: [], connections: [] } as unknown as import('@n8n-as-code/transformer').WorkflowAST,
     };

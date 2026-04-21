@@ -12,16 +12,12 @@ import { threeNodeTarget, singleNodeTarget } from '../fixtures/diagnostics/targe
 import {
   emptyTrustState,
   partialTrustState,
-  fullTrustState,
 } from '../fixtures/diagnostics/trust-state.js';
 import {
   dataLossError,
-  noErrorFindings,
-  mixedFindings,
 } from '../fixtures/diagnostics/static-findings.js';
 import {
   successExecution,
-  singleNodeApiError500,
 } from '../fixtures/diagnostics/execution-data.js';
 
 describe('assignAnnotations', () => {

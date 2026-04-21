@@ -32,7 +32,7 @@
     "lint": "biome check src/",
     "lint:fix": "biome check --write src/",
     "format": "biome format --write src/",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p tsconfig.check.json",
     "ci": "npm run typecheck && npm run lint && npm test"
   },
   "keywords": [

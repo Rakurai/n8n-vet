@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { runValidate, runTrust, runExplain } from '../../src/cli/commands.js';
-import type { ValidateOptions, ExplainOptions } from '../../src/cli/commands.js';
+import { runValidate, runTest, runTrust, runExplain } from '../../src/cli/commands.js';
+import type { ValidateOptions, TestOptions, ExplainOptions } from '../../src/cli/commands.js';
 import type { OrchestratorDeps } from '../../src/orchestrator/types.js';
 import type { WorkflowGraph, GraphNode, Edge } from '../../src/types/graph.js';
 import type { NodeIdentity } from '../../src/types/identity.js';
@@ -18,7 +18,7 @@ import { MalformedWorkflowError } from '../../src/static-analysis/errors.js';
 
 function makeNode(name: string): GraphNode {
   return {
-    name,
+    name: name as NodeIdentity,
     displayName: name,
     type: 'n8n-nodes-base.noOp',
     typeVersion: 1,
@@ -30,16 +30,17 @@ function makeNode(name: string): GraphNode {
 }
 
 function makeGraph(nodeNames: string[]): WorkflowGraph {
-  const nodes = new Map<string, GraphNode>();
-  const displayNameIndex = new Map<string, string>();
-  const forward = new Map<string, Edge[]>();
-  const backward = new Map<string, Edge[]>();
+  const nodes = new Map<NodeIdentity, GraphNode>();
+  const displayNameIndex = new Map<string, NodeIdentity>();
+  const forward = new Map<NodeIdentity, Edge[]>();
+  const backward = new Map<NodeIdentity, Edge[]>();
 
   for (const name of nodeNames) {
-    nodes.set(name, makeNode(name));
-    displayNameIndex.set(name, name);
-    forward.set(name, []);
-    backward.set(name, []);
+    const id = name as NodeIdentity;
+    nodes.set(id, makeNode(name));
+    displayNameIndex.set(name, id);
+    forward.set(id, []);
+    backward.set(id, []);
   }
 
   const nodeAsts = nodeNames.map((name) => ({
@@ -139,7 +140,6 @@ function createMockDeps(overrides?: Partial<OrchestratorDeps>): OrchestratorDeps
 describe('runValidate', () => {
   const defaultOptions: ValidateOptions = {
     target: { kind: 'changed' },
-    layer: 'static',
     force: false,
   };
 
@@ -199,7 +199,7 @@ describe('runTrust', () => {
 describe('runExplain', () => {
   const defaultOptions: ExplainOptions = {
     target: { kind: 'changed' },
-    layer: 'static',
+    tool: 'validate',
   };
 
   it('returns GuardrailExplanation envelope', async () => {
@@ -218,7 +218,7 @@ describe('runExplain', () => {
     const deps = createMockDeps();
     const options: ExplainOptions = {
       target: { kind: 'nodes', nodes: ['trigger' as NodeIdentity] },
-      layer: 'static',
+      tool: 'validate',
     };
     const result = await runExplain('/test/wf.ts', options, deps);
 
@@ -239,5 +239,45 @@ describe('runExplain', () => {
     if (!result.success) {
       expect(result.error.type).toBe('internal_error');
     }
+  });
+});
+
+describe('runTest', () => {
+  const defaultOptions: TestOptions = {
+    target: { kind: 'changed' },
+    force: false,
+    pinData: null,
+  };
+
+  it('returns success envelope with DiagnosticSummary', async () => {
+    const deps = createMockDeps();
+    const result = await runTest('/test/wf.ts', defaultOptions, deps);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.schemaVersion).toBe(1);
+      expect(result.data.status).toBe('pass');
+    }
+  });
+
+  it('returns error-status diagnostic on parse failure', async () => {
+    const deps = createMockDeps({
+      parseWorkflowFile: vi.fn().mockRejectedValue(new MalformedWorkflowError('bad')),
+    });
+    const result = await runTest('/bad.ts', defaultOptions, deps);
+
+    // interpret catches parse errors internally and returns error-status diagnostic
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.status).toBe('error');
+    }
+  });
+
+  it('passes tool: test to interpret', async () => {
+    const deps = createMockDeps();
+    await runTest('/test/wf.ts', defaultOptions, deps);
+
+    // tool:'test' triggers the execution path in interpret, which calls detectCapabilities
+    expect(deps.detectCapabilities).toHaveBeenCalled();
   });
 });

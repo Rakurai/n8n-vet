@@ -91,7 +91,7 @@ async function run(_ctx: IntegrationContext): Promise<void> {
   }
 
   // Test 5: ExecutionInfrastructureError → 'infrastructure_error'
-  const infraErr = mapToMcpError(new ExecutionInfrastructureError('MCP connection failed'));
+  const infraErr = mapToMcpError(new ExecutionInfrastructureError('mcp-unavailable', 'MCP connection failed'));
   if (infraErr.type !== 'infrastructure_error') {
     throw new Error(`Expected 'infrastructure_error', got '${infraErr.type}'`);
   }

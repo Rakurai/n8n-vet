@@ -51,7 +51,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
       tool: 'test',
       force: true,
       pinData: null,
-      callTool: ctx.callTool ?? undefined,
+      ...(ctx.callTool ? { callTool: ctx.callTool } : {}),
     },
     deps,
   );

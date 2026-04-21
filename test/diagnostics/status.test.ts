@@ -9,7 +9,6 @@ import {
   refuseDecision,
   proceedDecision,
 } from '../fixtures/diagnostics/guardrail-decisions.js';
-import { nodeIdentity } from '../../src/types/identity.js';
 import type { ExecutionData } from '../../src/diagnostics/types.js';
 
 describe('determineStatus', () => {

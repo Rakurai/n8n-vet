@@ -28,7 +28,7 @@ export async function createN8nMcpCaller(
   });
 
   const client = new Client({ name: 'n8n-proctor-integration', version: '0.1.0' });
-  await client.connect(transport);
+  await client.connect(transport as Parameters<typeof client.connect>[0]);
 
   const callTool: McpToolCaller = async (toolName: string, args: Record<string, unknown>): Promise<unknown> => {
     // Intercept tools/list — map to protocol-level listTools() for capability detection

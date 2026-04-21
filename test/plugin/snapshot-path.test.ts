@@ -3,6 +3,7 @@ import { existsSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { loadSnapshot, saveSnapshot } from '../../src/orchestrator/snapshots.js';
 import type { WorkflowGraph, GraphNode, Edge } from '../../src/types/graph.js';
+import type { NodeIdentity } from '../../src/types/identity.js';
 import type { WorkflowAST } from '@n8n-as-code/transformer';
 
 const SCRATCH = join(resolve('.'), '.scratch/test-snapshot-path');
@@ -11,7 +12,7 @@ const ENV_KEY = 'N8N_PROCTOR_DATA_DIR';
 
 function makeGraph(): WorkflowGraph {
   const node: GraphNode = {
-    name: 'A',
+    name: 'A' as NodeIdentity,
     displayName: 'Display A',
     type: 'n8n-nodes-base.noOp',
     typeVersion: 1,
@@ -21,10 +22,10 @@ function makeGraph(): WorkflowGraph {
     classification: 'shape-preserving',
   };
 
-  const nodes = new Map<string, GraphNode>([['A', node]]);
-  const forward = new Map<string, Edge[]>([['A', []]]);
-  const backward = new Map<string, Edge[]>([['A', []]]);
-  const displayNameIndex = new Map<string, string>([['Display A', 'A']]);
+  const nodes = new Map<NodeIdentity, GraphNode>([['A' as NodeIdentity, node]]);
+  const forward = new Map<NodeIdentity, Edge[]>([['A' as NodeIdentity, []]]);
+  const backward = new Map<NodeIdentity, Edge[]>([['A' as NodeIdentity, []]]);
+  const displayNameIndex = new Map<string, NodeIdentity>([['Display A', 'A' as NodeIdentity]]);
 
   return {
     nodes,

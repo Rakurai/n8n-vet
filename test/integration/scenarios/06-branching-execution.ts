@@ -12,6 +12,7 @@ import { resolve, join } from 'node:path';
 import { interpret } from '../../../src/orchestrator/interpret.js';
 import { buildTestDeps } from '../lib/deps.js';
 import { assertStatus, assertNoFindings, assertEvidenceBasis, assertExecutedPathContains } from '../lib/assertions.js';
+import type { NodeIdentity } from '../../../src/types/identity.js';
 import type { IntegrationContext } from '../lib/setup.js';
 import type { Scenario } from '../run.js';
 
@@ -26,7 +27,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
       tool: 'test',
       force: true,
       pinData: null,
-      callTool: ctx.callTool ?? undefined,
+      ...(ctx.callTool ? { callTool: ctx.callTool } : {}),
     },
     deps,
   );
@@ -42,7 +43,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
 
     // Path should include one branch (True Path or False Path, depending on pin data)
     const pathNames = result.executedPath!.map(n => n.name);
-    const hasBranch = pathNames.includes('True Path') || pathNames.includes('False Path');
+    const hasBranch = pathNames.includes('True Path' as NodeIdentity) || pathNames.includes('False Path' as NodeIdentity);
     if (!hasBranch) {
       throw new Error(`Expected path to include 'True Path' or 'False Path', got: [${pathNames.join(', ')}]`);
     }

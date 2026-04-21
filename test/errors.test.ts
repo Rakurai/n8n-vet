@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { ZodError } from 'zod';
-import { mapToMcpError } from '../src/errors.js';
+import { mapToMcpError, sanitizeMessage } from '../src/errors.js';
 import { MalformedWorkflowError, ConfigurationError } from '../src/static-analysis/errors.js';
 
 describe('mapToMcpError', () => {
@@ -57,5 +57,40 @@ describe('mapToMcpError', () => {
     const result = mapToMcpError('string thrown');
     expect(result.type).toBe('internal_error');
     expect(result.message).toBe('string thrown');
+  });
+});
+
+describe('sanitizeMessage', () => {
+  it('passes short messages through unchanged', () => {
+    expect(sanitizeMessage('hello')).toBe('hello');
+  });
+
+  it('strips control characters', () => {
+    expect(sanitizeMessage('a\x00b\x01c')).toBe('abc');
+  });
+
+  it('preserves newlines and tabs', () => {
+    expect(sanitizeMessage('a\nb\tc')).toBe('a\nb\tc');
+  });
+
+  it('truncates long messages to 500 chars with suffix', () => {
+    const long = 'x'.repeat(600);
+    const result = sanitizeMessage(long);
+    expect(result).toBe('x'.repeat(500) + ' [truncated]');
+    expect(result.length).toBe(512);
+  });
+
+  it('does not truncate exactly 500-char messages', () => {
+    const exact = 'x'.repeat(500);
+    expect(sanitizeMessage(exact)).toBe(exact);
+  });
+});
+
+describe('mapToMcpError sanitization', () => {
+  it('truncates long error messages', () => {
+    const err = new Error('y'.repeat(600));
+    const result = mapToMcpError(err);
+    expect(result.message.length).toBeLessThanOrEqual(512);
+    expect(result.message).toContain('[truncated]');
   });
 });

@@ -6,15 +6,13 @@
  * prepare_test_pin_data response parsing, MCP unavailable error.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ExecutionInfrastructureError, ExecutionPreconditionError } from '../../src/execution/errors.js';
 import { releaseExecutionLock } from '../../src/execution/lock.js';
 
 // ---------------------------------------------------------------------------
 // Mock MCP tool caller type
 // ---------------------------------------------------------------------------
-
-type McpToolCaller = (toolName: string, args: Record<string, unknown>) => Promise<unknown>;
 
 import {
   TestWorkflowResponseSchema,

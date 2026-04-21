@@ -107,19 +107,19 @@ describe('formatTrustStatus', () => {
       workflowId: 'wf-1',
       totalNodes: 3,
       trustedNodes: [{
-        name: 'trigger',
+        name: 'trigger' as NodeIdentity,
         validatedAt: '2026-01-01T00:00:00Z',
         validatedWith: 'static',
         contentUnchanged: true,
       }],
       untrustedNodes: [{
-        name: 'httpReq',
+        name: 'httpReq' as NodeIdentity,
         reason: 'no prior validation',
       }, {
-        name: 'setNode',
+        name: 'setNode' as NodeIdentity,
         reason: 'content changed since last validation',
       }],
-      changedSinceLastValidation: ['httpReq'],
+      changedSinceLastValidation: ['httpReq' as NodeIdentity],
     };
     const output = formatTrustStatus(report);
     expect(output).toContain('wf-1');
@@ -140,7 +140,7 @@ describe('formatGuardrailExplanation', () => {
         evidence: { changedNodes: [], trustedNodes: [], lastValidatedAt: null, fixtureChanged: false },
         overridable: false,
       },
-      targetResolution: { resolvedNodes: ['nodeA'], selectedPath: [], automatic: true },
+      targetResolution: { resolvedNodes: ['nodeA' as NodeIdentity], selectedPath: [], automatic: true },
       capabilities: { staticAnalysis: true, mcpTools: false },
     };
     const output = formatGuardrailExplanation(explanation);
@@ -174,7 +174,7 @@ describe('formatGuardrailExplanation', () => {
         overridable: false,
         narrowedTarget: { kind: 'nodes', nodes: ['a' as NodeIdentity] },
       },
-      targetResolution: { resolvedNodes: ['a', 'b'], selectedPath: [], automatic: true },
+      targetResolution: { resolvedNodes: ['a' as NodeIdentity, 'b' as NodeIdentity], selectedPath: [], automatic: true },
       capabilities: { staticAnalysis: true, mcpTools: false },
     };
     const output = formatGuardrailExplanation(explanation);

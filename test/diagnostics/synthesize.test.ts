@@ -5,8 +5,6 @@ import {
   noErrorFindings,
   dataLossError,
   mixedFindings,
-  passFinding,
-  opaqueBoundaryWarning,
 } from '../fixtures/diagnostics/static-findings.js';
 import { emptyTrustState, partialTrustState } from '../fixtures/diagnostics/trust-state.js';
 import { proceedDecision } from '../fixtures/diagnostics/guardrail-decisions.js';
@@ -322,7 +320,8 @@ describe('synthesize — guardrail action reporting (US4)', () => {
     const result = synthesize(makeInput({ guardrailDecisions: [narrowDecision] }));
     const narrow = result.guardrailActions.find((d) => d.action === 'narrow');
     expect(narrow).toBeDefined();
-    if (narrow?.action !== 'narrow') throw new Error('Expected narrow action');
+    if (narrow === undefined || narrow.action !== 'narrow') throw new Error('Expected narrow action');
+    if (narrowDecision.action !== 'narrow') throw new Error('Expected narrow fixture');
     expect(narrow.narrowedTarget).toEqual(narrowDecision.narrowedTarget);
   });
 
@@ -346,7 +345,6 @@ describe('synthesize — guardrail action reporting (US4)', () => {
 import { nodeIdentity } from '../../src/types/identity.js';
 import type { ExecutionData } from '../../src/diagnostics/types.js';
 import { fiveNodeTarget } from '../fixtures/diagnostics/targets.js';
-import { fullTrustState } from '../fixtures/diagnostics/trust-state.js';
 
 describe('synthesize — full pipeline integration (T036)', () => {
   it('produces correct summary combining all evidence layers', () => {

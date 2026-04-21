@@ -12,15 +12,16 @@ import type { NodeSchemaProvider } from '../../src/static-analysis/schemas.js';
 // ---------------------------------------------------------------------------
 
 function makeGraph(nodes: Array<{name: string; displayName: string; type: string}>): WorkflowGraph {
-  const nodeMap = new Map();
-  const displayNameIndex = new Map();
+  const nodeMap = new Map<NodeIdentity, import('../../src/types/graph.js').GraphNode>();
+  const displayNameIndex = new Map<string, NodeIdentity>();
   for (const n of nodes) {
-    nodeMap.set(n.name, {
-      name: n.name, displayName: n.displayName, type: n.type,
+    const id = n.name as NodeIdentity;
+    nodeMap.set(id, {
+      name: id, displayName: n.displayName, type: n.type,
       typeVersion: 1, parameters: {}, credentials: null,
       disabled: false, classification: 'shape-replacing' as const,
     });
-    displayNameIndex.set(n.displayName, n.name);
+    displayNameIndex.set(n.displayName, id);
   }
   return {
     nodes: nodeMap, forward: new Map(), backward: new Map(),

@@ -10,7 +10,7 @@
 import { resolve, join } from 'node:path';
 import { interpret } from '../../../src/orchestrator/interpret.js';
 import { buildTestDeps } from '../lib/deps.js';
-import { assertStatus, assertFindingPresent, assertFindingOnNode, assertEvidenceBasis, assertNodeAnnotation, assertAnnotationCount, assertHintPresent } from '../lib/assertions.js';
+import { assertStatus, assertFindingPresent, assertEvidenceBasis, assertNodeAnnotation, assertAnnotationCount, assertHintPresent } from '../lib/assertions.js';
 import type { IntegrationContext } from '../lib/setup.js';
 import type { Scenario } from '../run.js';
 

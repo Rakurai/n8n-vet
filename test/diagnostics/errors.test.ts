@@ -13,7 +13,6 @@ import {
   missingCredsError,
   unresolvableExprError,
   opaqueBoundaryWarning,
-  passFinding,
   noErrorFindings,
   mixedFindings,
 } from '../fixtures/diagnostics/static-findings.js';

@@ -5,7 +5,6 @@
 import { describe, it, expect } from 'vitest';
 import { extractPriorRunContext, checkDeFlaker } from '../../src/guardrails/rerun.js';
 import type { DiagnosticSummary } from '../../src/types/diagnostic.js';
-import type { NodeIdentity } from '../../src/types/identity.js';
 import { nodeIdentity } from '../../src/types/identity.js';
 import type { PriorRunContext } from '../../src/guardrails/types.js';
 
@@ -51,8 +50,8 @@ describe('extractPriorRunContext', () => {
     const ctx = extractPriorRunContext(makeSummary({
       status: 'fail',
       executedPath: [
-        { name: nodeIdentity('a'), status: 'executed' },
-        { name: nodeIdentity('b'), status: 'error' },
+        { name: nodeIdentity('a'), executionIndex: 0, sourceOutput: null },
+        { name: nodeIdentity('b'), executionIndex: 0, sourceOutput: 0 },
       ],
     }));
     expect(ctx!.failingPath).toEqual([nodeIdentity('a'), nodeIdentity('b')]);
@@ -81,7 +80,7 @@ describe('checkDeFlaker', () => {
   });
 
   it('returns false when failing path is null', () => {
-    const ctx: PriorRunContext = { failed: true, failingPath: null, failureClassification: 'logic' };
+    const ctx: PriorRunContext = { failed: true, failingPath: null, failureClassification: 'unknown' };
     expect(checkDeFlaker(ctx, new Set())).toBe(false);
   });
 
@@ -107,7 +106,7 @@ describe('checkDeFlaker', () => {
     const ctx: PriorRunContext = {
       failed: true,
       failingPath: [nodeIdentity('a'), nodeIdentity('b')],
-      failureClassification: 'logic',
+      failureClassification: 'unknown',
     };
     expect(checkDeFlaker(ctx, new Set([nodeIdentity('c')]))).toBe(true);
   });
@@ -116,7 +115,7 @@ describe('checkDeFlaker', () => {
     const ctx: PriorRunContext = {
       failed: true,
       failingPath: [nodeIdentity('a'), nodeIdentity('b')],
-      failureClassification: 'logic',
+      failureClassification: 'unknown',
     };
     expect(checkDeFlaker(ctx, new Set([nodeIdentity('b')]))).toBe(false);
   });

@@ -76,7 +76,7 @@ export interface ExecutionErrorDataBase {
 /** Classified execution error with context-specific fields. */
 export type ExecutionErrorData = ExecutionErrorDataBase &
   (
-    | { contextKind: 'api'; context: { httpCode: string; errorCode?: string } }
+    | { contextKind: 'api'; context: { httpCode?: string; errorCode?: string } }
     | { contextKind: 'cancellation'; context: { reason: 'manual' | 'timeout' | 'shutdown' } }
     | { contextKind: 'expression'; context: { expressionType?: string; parameter?: string } }
     | { contextKind: 'other'; context: { runIndex?: number; itemIndex?: number } }

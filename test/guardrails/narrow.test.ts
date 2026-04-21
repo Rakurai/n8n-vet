@@ -153,8 +153,8 @@ describe('evaluate pipeline — narrow scenario', () => {
       ),
       currentHashes: uniformHashes(allNames),
       trustState: partialTrustState(trustedNames),
-      // Use static layer to skip redirect check, isolating narrowing behavior
-      layer: 'static',
+      // Use validate tool to skip redirect check, isolating narrowing behavior
+      tool: 'validate',
     });
 
     const decision = evaluate(input);

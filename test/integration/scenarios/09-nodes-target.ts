@@ -13,6 +13,7 @@ import { interpret } from '../../../src/orchestrator/interpret.js';
 import { buildTrustStatusReport } from '../../../src/surface.js';
 import { buildTestDeps } from '../lib/deps.js';
 import { assertStatus, assertNoFindings, assertTrusted } from '../lib/assertions.js';
+import { nodeIdentity } from '../../../src/types/identity.js';
 import type { IntegrationContext } from '../lib/setup.js';
 import type { Scenario } from '../run.js';
 
@@ -23,7 +24,7 @@ async function run(ctx: IntegrationContext): Promise<void> {
   const result = await interpret(
     {
       workflowPath: multiNodePath,
-      target: { kind: 'nodes', nodes: ['B', 'C'] },
+      target: { kind: 'nodes', nodes: [nodeIdentity('B'), nodeIdentity('C')] },
       tool: 'validate',
       force: false,
       pinData: null,

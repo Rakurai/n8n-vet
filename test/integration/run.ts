@@ -12,7 +12,6 @@
 import { readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { setup, createScenarioContext, type IntegrationContext } from './lib/setup.js';
-import { pushFixture } from './lib/push.js';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -74,17 +73,6 @@ function parseArgs(): CliArgs {
   return result;
 }
 
-// ── Push All Fixtures ────────────────────────────────────────────
-
-function pushAllFixtures(ctx: IntegrationContext, verbose: boolean): void {
-  const fixtures = Object.keys(ctx.manifest);
-  for (const name of fixtures) {
-    const fixturePath = join(ctx.fixturesDir, `${name}.ts`);
-    if (verbose) console.log(`  Pushing fixture: ${name}`);
-    pushFixture(fixturePath);
-  }
-}
-
 // ── Main ─────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -134,7 +122,7 @@ async function main(): Promise<void> {
     try {
       await scenario.run(scenarioCtx);
       const durationMs = Date.now() - start;
-      results.push({ name: scenario.name, passed: true, durationMs });
+      results.push({ name: scenario.name, passed: true, durationMs } as RunResult);
       console.log(`  PASS  ${scenario.name} (${durationMs}ms)`);
     } catch (err) {
       const durationMs = Date.now() - start;

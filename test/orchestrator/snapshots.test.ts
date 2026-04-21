@@ -4,13 +4,16 @@ import { join, resolve } from 'node:path';
 import { loadSnapshot, saveSnapshot } from '../../src/orchestrator/snapshots.js';
 import { deriveWorkflowId } from '../../src/orchestrator/types.js';
 import type { WorkflowGraph, GraphNode, Edge } from '../../src/types/graph.js';
+import type { NodeIdentity } from '../../src/types/identity.js';
 import type { WorkflowAST } from '@n8n-as-code/transformer';
 
 const TEST_DIR = join(resolve('.'), '.scratch/test-snapshots');
 
+const nid = (s: string) => s as NodeIdentity;
+
 function makeNode(name: string): GraphNode {
   return {
-    name,
+    name: name as NodeIdentity,
     displayName: `Display ${name}`,
     type: 'n8n-nodes-base.noOp',
     typeVersion: 1,
@@ -22,32 +25,32 @@ function makeNode(name: string): GraphNode {
 }
 
 function makeEdge(from: string, to: string): Edge {
-  return { from, fromOutput: 0, isError: false, to, toInput: 0 };
+  return { from: from as NodeIdentity, fromOutput: 0, isError: false, to: to as NodeIdentity, toInput: 0 };
 }
 
 function testGraph(): WorkflowGraph {
-  const nodes = new Map<string, GraphNode>([
-    ['A', makeNode('A')],
-    ['B', makeNode('B')],
-    ['C', makeNode('C')],
+  const nodes = new Map<NodeIdentity, GraphNode>([
+    ['A' as NodeIdentity, makeNode('A')],
+    ['B' as NodeIdentity, makeNode('B')],
+    ['C' as NodeIdentity, makeNode('C')],
   ]);
 
-  const forward = new Map<string, Edge[]>([
-    ['A', [makeEdge('A', 'B')]],
-    ['B', [makeEdge('B', 'C')]],
-    ['C', []],
+  const forward = new Map<NodeIdentity, Edge[]>([
+    ['A' as NodeIdentity, [makeEdge('A', 'B')]],
+    ['B' as NodeIdentity, [makeEdge('B', 'C')]],
+    ['C' as NodeIdentity, []],
   ]);
 
-  const backward = new Map<string, Edge[]>([
-    ['A', []],
-    ['B', [makeEdge('A', 'B')]],
-    ['C', [makeEdge('B', 'C')]],
+  const backward = new Map<NodeIdentity, Edge[]>([
+    ['A' as NodeIdentity, []],
+    ['B' as NodeIdentity, [makeEdge('A', 'B')]],
+    ['C' as NodeIdentity, [makeEdge('B', 'C')]],
   ]);
 
-  const displayNameIndex = new Map<string, string>([
-    ['Display A', 'A'],
-    ['Display B', 'B'],
-    ['Display C', 'C'],
+  const displayNameIndex = new Map<string, NodeIdentity>([
+    ['Display A', 'A' as NodeIdentity],
+    ['Display B', 'B' as NodeIdentity],
+    ['Display C', 'C' as NodeIdentity],
   ]);
 
   return {
@@ -84,11 +87,11 @@ describe('snapshot round-trip', () => {
     const loaded = loadSnapshot(workflowId, TEST_DIR)!;
 
     expect(loaded.nodes.size).toBe(3);
-    expect(loaded.nodes.has('A')).toBe(true);
-    expect(loaded.nodes.has('B')).toBe(true);
-    expect(loaded.nodes.has('C')).toBe(true);
+    expect(loaded.nodes.has(nid('A'))).toBe(true);
+    expect(loaded.nodes.has(nid('B'))).toBe(true);
+    expect(loaded.nodes.has(nid('C'))).toBe(true);
 
-    const nodeA = loaded.nodes.get('A')!;
+    const nodeA = loaded.nodes.get(nid('A'))!;
     expect(nodeA.name).toBe('A');
     expect(nodeA.displayName).toBe('Display A');
     expect(nodeA.type).toBe('n8n-nodes-base.noOp');
@@ -103,17 +106,17 @@ describe('snapshot round-trip', () => {
     const loaded = loadSnapshot(workflowId, TEST_DIR)!;
 
     // Forward: A→B, B→C
-    expect(loaded.forward.get('A')).toHaveLength(1);
-    expect(loaded.forward.get('A')![0]!.to).toBe('B');
-    expect(loaded.forward.get('B')).toHaveLength(1);
-    expect(loaded.forward.get('B')![0]!.to).toBe('C');
-    expect(loaded.forward.get('C')).toHaveLength(0);
+    expect(loaded.forward.get(nid('A'))).toHaveLength(1);
+    expect(loaded.forward.get(nid('A'))![0]!.to).toBe('B');
+    expect(loaded.forward.get(nid('B'))).toHaveLength(1);
+    expect(loaded.forward.get(nid('B'))![0]!.to).toBe('C');
+    expect(loaded.forward.get(nid('C'))).toHaveLength(0);
 
     // Backward: B←A, C←B
-    expect(loaded.backward.get('B')).toHaveLength(1);
-    expect(loaded.backward.get('B')![0]!.from).toBe('A');
-    expect(loaded.backward.get('C')).toHaveLength(1);
-    expect(loaded.backward.get('C')![0]!.from).toBe('B');
+    expect(loaded.backward.get(nid('B'))).toHaveLength(1);
+    expect(loaded.backward.get(nid('B'))![0]!.from).toBe('A');
+    expect(loaded.backward.get(nid('C'))).toHaveLength(1);
+    expect(loaded.backward.get(nid('C'))![0]!.from).toBe('B');
   });
 
   it('reconstructs displayNameIndex', () => {

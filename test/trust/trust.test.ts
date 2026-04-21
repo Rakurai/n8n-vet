@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildGraph, parseWorkflowFile } from '../../src/static-analysis/graph.js';
-import { computeContentHash, computeConnectionsHash } from '../../src/trust/hash.js';
+import { computeContentHash } from '../../src/trust/hash.js';
 import {
   recordValidation,
   invalidateTrust,
@@ -12,7 +12,7 @@ import {
   getRerunAssessment,
 } from '../../src/trust/trust.js';
 import type { WorkflowGraph } from '../../src/types/graph.js';
-import type { TrustState, NodeChangeSet, NodeModification } from '../../src/types/trust.js';
+import type { TrustState, NodeChangeSet } from '../../src/types/trust.js';
 import type { NodeIdentity } from '../../src/types/identity.js';
 
 const FIXTURES_DIR = resolve(
@@ -59,7 +59,7 @@ describe('recordValidation', () => {
 
     const httpRecord = result.nodes.get(ni('httpRequest'))!;
     expect(httpRecord.contentHash).toBe(
-      computeContentHash(graph.nodes.get('httpRequest')!, graph.ast),
+      computeContentHash(graph.nodes.get(ni('httpRequest'))!, graph.ast),
     );
     expect(httpRecord.validatedBy).toBe('run-001');
     expect(httpRecord.validatedWith).toBe('static');
@@ -324,7 +324,7 @@ describe('isTrusted', () => {
       'run-001',
       null,
     );
-    const currentHash = computeContentHash(graph.nodes.get('httpRequest')!, graph.ast);
+    const currentHash = computeContentHash(graph.nodes.get(ni('httpRequest'))!, graph.ast);
 
     expect(isTrusted(state, ni('httpRequest'), currentHash)).toBe(true);
   });

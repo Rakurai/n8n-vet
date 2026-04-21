@@ -5,6 +5,7 @@ import { buildGraph, parseWorkflowFile } from '../../src/static-analysis/graph.j
 import { MalformedWorkflowError } from '../../src/static-analysis/errors.js';
 import { createBrokenRefAST } from '../fixtures/workflows/malformed-broken-ref.js';
 import { createDuplicateNamesAST } from '../fixtures/workflows/malformed-duplicate-names.js';
+import type { NodeIdentity } from '../../src/types/identity.js';
 import type { WorkflowAST } from '@n8n-as-code/transformer';
 
 const FIXTURES_DIR = resolve(
@@ -12,27 +13,30 @@ const FIXTURES_DIR = resolve(
   '../../fixtures/workflows',
 );
 
+/** Cast string to NodeIdentity for map lookups in tests. */
+const nid = (s: string) => s as NodeIdentity;
+
 describe('buildGraph', () => {
   it('builds graph from TS fixture', async () => {
     const ast = await parseWorkflowFile(resolve(FIXTURES_DIR, 'linear-simple.ts'));
     const graph = buildGraph(ast);
 
     expect(graph.nodes.size).toBe(3);
-    expect(graph.nodes.has('scheduleTrigger')).toBe(true);
-    expect(graph.nodes.has('httpRequest')).toBe(true);
-    expect(graph.nodes.has('setFields')).toBe(true);
+    expect(graph.nodes.has(nid('scheduleTrigger'))).toBe(true);
+    expect(graph.nodes.has(nid('httpRequest'))).toBe(true);
+    expect(graph.nodes.has(nid('setFields'))).toBe(true);
 
     // Forward adjacency
-    const triggerEdges = graph.forward.get('scheduleTrigger')!;
+    const triggerEdges = graph.forward.get(nid('scheduleTrigger'))!;
     expect(triggerEdges).toHaveLength(1);
     expect(triggerEdges[0].to).toBe('httpRequest');
 
-    const httpEdges = graph.forward.get('httpRequest')!;
+    const httpEdges = graph.forward.get(nid('httpRequest'))!;
     expect(httpEdges).toHaveLength(1);
     expect(httpEdges[0].to).toBe('setFields');
 
     // Backward adjacency
-    const httpBackward = graph.backward.get('httpRequest')!;
+    const httpBackward = graph.backward.get(nid('httpRequest'))!;
     expect(httpBackward).toHaveLength(1);
     expect(httpBackward[0].from).toBe('scheduleTrigger');
 
@@ -56,15 +60,15 @@ describe('buildGraph', () => {
     const graph = buildGraph(ast);
 
     // checkValue (If node) has 2 forward edges: out(0) and out(1)
-    const checkValueEdges = graph.forward.get('checkValue')!;
+    const checkValueEdges = graph.forward.get(nid('checkValue'))!;
     expect(checkValueEdges).toHaveLength(2);
 
     // truePath and falsePath each have 1 backward edge from checkValue
-    const trueBackward = graph.backward.get('truePath')!;
+    const trueBackward = graph.backward.get(nid('truePath'))!;
     expect(trueBackward).toHaveLength(1);
     expect(trueBackward[0].from).toBe('checkValue');
 
-    const falseBackward = graph.backward.get('falsePath')!;
+    const falseBackward = graph.backward.get(nid('falsePath'))!;
     expect(falseBackward).toHaveLength(1);
     expect(falseBackward[0].from).toBe('checkValue');
   });
@@ -74,8 +78,8 @@ describe('buildGraph', () => {
     const graph = buildGraph(ast);
 
     expect(graph.nodes.size).toBe(1);
-    expect(graph.forward.get('webhookTrigger')).toEqual([]);
-    expect(graph.backward.get('webhookTrigger')).toEqual([]);
+    expect(graph.forward.get(nid('webhookTrigger'))).toEqual([]);
+    expect(graph.backward.get(nid('webhookTrigger'))).toEqual([]);
     expect(graph.displayNameIndex.size).toBe(1);
   });
 
@@ -83,9 +87,9 @@ describe('buildGraph', () => {
     const ast = await parseWorkflowFile(resolve(FIXTURES_DIR, 'linear-simple.ts'));
     const graph = buildGraph(ast);
 
-    expect(graph.nodes.get('scheduleTrigger')!.classification).toBe('shape-replacing');
-    expect(graph.nodes.get('httpRequest')!.classification).toBe('shape-replacing');
-    expect(graph.nodes.get('setFields')!.classification).toBe('shape-augmenting');
+    expect(graph.nodes.get(nid('scheduleTrigger'))!.classification).toBe('shape-replacing');
+    expect(graph.nodes.get(nid('httpRequest'))!.classification).toBe('shape-replacing');
+    expect(graph.nodes.get(nid('setFields'))!.classification).toBe('shape-augmenting');
   });
 
   it('throws MalformedWorkflowError for broken connection refs', () => {
@@ -130,11 +134,11 @@ describe('buildGraph', () => {
     const graph = buildGraph(cyclicAST);
 
     // Graph should have both edges despite the cycle
-    const aForward = graph.forward.get('nodeA')!;
+    const aForward = graph.forward.get(nid('nodeA'))!;
     expect(aForward).toHaveLength(1);
     expect(aForward[0].to).toBe('nodeB');
 
-    const bForward = graph.forward.get('nodeB')!;
+    const bForward = graph.forward.get(nid('nodeB'))!;
     expect(bForward).toHaveLength(1);
     expect(bForward[0].to).toBe('nodeA');
   });
