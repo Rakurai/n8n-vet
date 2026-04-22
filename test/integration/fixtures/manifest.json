@@ -1,9 +1,0 @@
-{
-  "happy-path": "D0KIP1yb8RF7zxkb",
-  "broken-wiring": "dmxhg3XYVXgImSkk",
-  "data-loss-passthrough": "qJAgZgl5A7sYNjPx",
-  "expression-bug": "XSpcho6Ex2B9zyCb",
-  "credential-failure": "fjofF7aeAlpDFQWf",
-  "branching-coverage": "Y4062Au0NNYTqs2s",
-  "multi-node-change": "qMksecSMzxrEy7xg"
-}

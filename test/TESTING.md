@@ -109,7 +109,7 @@ Copy `.env.example` to `.env` and fill in values (gitignored).
 
 ### Fixtures
 
-Integration fixtures live in `test/integration/fixtures/`. They are real n8n workflows seeded onto the instance by `seed.ts` and committed as static `.ts` files.
+Integration fixtures live in `test/integration/fixtures/`. They are real n8n workflows seeded onto the instance by `seed.ts`. The seeded `.ts` files and `manifest.json` are gitignored — run `npm run test:integ:seed` to regenerate them locally.
 
 | Fixture | Nodes | Purpose |
 |---------|-------|---------|
